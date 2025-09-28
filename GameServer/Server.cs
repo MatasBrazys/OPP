@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Dynamic;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
@@ -46,18 +47,14 @@ class Server
 
     static void HandleClient(int id, TcpClient client)
     {
-        NetworkStream stream = client.GetStream();
-        byte[] buffer = new byte[1024];
+        using var reader = new StreamReader(client.GetStream(), Encoding.UTF8);
+        string? line;
 
-        while (true)
+        try
         {
-            try
+            while ((line = reader.ReadLine()) != null)
             {
-                int bytesRead = stream.Read(buffer, 0, buffer.Length);
-                if (bytesRead == 0) break;
-
-                string msg = Encoding.UTF8.GetString(buffer, 0, bytesRead);
-                PlayerState updated = JsonSerializer.Deserialize<PlayerState>(msg);
+                PlayerState updated = JsonSerializer.Deserialize<PlayerState>(line)!;
 
                 lock (locker)
                 {
@@ -67,10 +64,10 @@ class Server
 
                 BroadcastGameState();
             }
-            catch
-            {
-                break;
-            }
+        }
+        catch
+        {
+            // client disconnected
         }
 
         lock (locker)
@@ -88,7 +85,7 @@ class Server
         string json;
         lock (locker)
         {
-            json = JsonSerializer.Serialize(players.Values);
+            json = JsonSerializer.Serialize(players.Values) + "\n"; // <-- add newline
         }
 
         byte[] data = Encoding.UTF8.GetBytes(json);

@@ -21,9 +21,6 @@ namespace GameClient
 
         public GameClientForm()
         {
-            base.DoubleBuffered = true;
-
-            // Initialize a dummy player so something is drawn immediately
             myPlayer = new Player(0, 200, 200, Color.Blue);
             players[myPlayer.Id] = myPlayer;
 
@@ -69,7 +66,7 @@ namespace GameClient
                 if (stream != null)
                 {
                     var msg = new NetworkMessage { Id = myPlayer.Id, X = myPlayer.X, Y = myPlayer.Y };
-                    string json = JsonSerializer.Serialize(msg);
+                    string json = JsonSerializer.Serialize(msg)+ "\n"; // Add newline as a delimiter
                     byte[] data = Encoding.UTF8.GetBytes(json);
                     try { stream.Write(data, 0, data.Length); } catch { }
                 }
@@ -80,19 +77,15 @@ namespace GameClient
 
         private void ReceiveData()
         {
-            byte[] buffer = new byte[4096];
-            while (true)
+            try
             {
-                try
+                if (stream == null) return;
+
+                using var reader = new StreamReader(stream, Encoding.UTF8);
+                string? line;
+                while ((line = reader.ReadLine()) != null)
                 {
-                    if (stream == null) break;
-
-                    int bytesRead = stream.Read(buffer, 0, buffer.Length);
-                    if (bytesRead == 0) break;
-
-                    string json = Encoding.UTF8.GetString(buffer, 0, bytesRead);
-                    var states = JsonSerializer.Deserialize<List<NetworkMessage>>(json);
-
+                    var states = JsonSerializer.Deserialize<List<NetworkMessage>>(line);
                     if (states == null) continue;
 
                     lock (players)
@@ -110,12 +103,13 @@ namespace GameClient
                         }
                     }
                 }
-                catch
-                {
-                    break;
-                }
             }
-        }
+            catch
+            {
+                // disconnected
+            }
+    }
+        
 
         private void GameClientForm_Paint(object? sender, PaintEventArgs e)
         {
