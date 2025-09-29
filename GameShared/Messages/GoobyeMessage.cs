@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace GameClient.messages
+namespace GameShared.Messages
 {
     public class GoodbyeMessage : GameMessage
     {

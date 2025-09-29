@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using GameServer.types;
+using GameShared.Types;
 
-namespace GameServer.messages
+namespace GameShared.Messages
 {
     public class StateMessage : GameMessage
     {

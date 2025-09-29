@@ -6,7 +6,7 @@ using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Windows.Forms;
-using GameClient.messages;
+using GameShared.Messages;
 
 namespace GameClient
 {

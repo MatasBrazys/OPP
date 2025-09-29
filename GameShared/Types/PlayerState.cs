@@ -4,13 +4,10 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace GameServer
+namespace GameShared.Types
 {
-    class Program
+    public class PlayerState : Entity
     {
-        static void Main(string[] args)
-        {
-            Game.Instance.Start();
-        }
+       public int Health { get; set; }
     }
 }

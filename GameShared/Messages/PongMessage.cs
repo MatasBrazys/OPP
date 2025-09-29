@@ -4,11 +4,11 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace GameServer.messages
+namespace GameShared.Messages
 {
-    public class PingMessage : GameMessage
+    public class PongMessage : GameMessage
     {
         public long T { get; set; }
-        public PingMessage() { Type = "ping"; }
+        public PongMessage() { Type = "pong"; }
     }
 }

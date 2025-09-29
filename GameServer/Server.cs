@@ -3,16 +3,17 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
-using GameServer.messages;
-using GameServer.types;
+using GameShared.Types;
+using GameShared.Messages;
+using System.Linq;
+using System.Collections.Generic;
 
-namespace GameServer {
-
-    class Server
+namespace GameServer
+{
+    public class Server
     {
         static TcpListener listener;
         static Dictionary<int, TcpClient> clients = new();
-        static Dictionary<int, PlayerState> players = new();
         static int nextId = 1;
         static object locker = new object();
 
@@ -30,7 +31,8 @@ namespace GameServer {
                 {
                     id = nextId++;
                     clients[id] = client;
-                    players[id] = new PlayerState { Id = id, X = 100, Y = 100 };
+                    var player = new PlayerState { Id = id, X = 100, Y = 100 };
+                    Game.Instance.World.AddEntity(player);
                 }
                 SendMessage(client, new WelcomeMessage { Id = id, Type = "welcome" });
                 SendStateTo(client);
@@ -39,19 +41,15 @@ namespace GameServer {
                 thread.Start();
             }
         }
+
         private void SendStateTo(TcpClient client)
         {
             var snapshot = new StateMessage
             {
                 ServerTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
-                Players = players.Select(kv => new PlayerState
-                {
-                    Id = kv.Key,
-                    X = kv.Value.X,
-                    Y = kv.Value.Y
-                }).ToList()
+                Players = Game.Instance.World.GetPlayers()
             };
-            SendMessage(client, snapshot); // make sure this includes "type":"state"
+            SendMessage(client, snapshot);
         }
 
         private void HandleClient(int id, TcpClient client)
@@ -76,7 +74,6 @@ namespace GameServer {
                             var ping = JsonSerializer.Deserialize<PingMessage>(line);
                             SendMessage(client, new PongMessage { T = ping.T });
                             break;
-                        // Add more cases as needed
                         default:
                             SendMessage(client, new ErrorMessage { Code = "bad_message", Detail = $"unknown type: {type}" });
                             break;
@@ -92,7 +89,9 @@ namespace GameServer {
                 lock (locker)
                 {
                     clients.Remove(id);
-                    players.Remove(id);
+                    var player = Game.Instance.World.GetPlayer(id);
+                    if (player != null)
+                        Game.Instance.World.RemoveEntity(player);
                 }
                 BroadcastState();
             }
@@ -102,7 +101,8 @@ namespace GameServer {
         {
             lock (locker)
             {
-                if (players.TryGetValue(id, out var player))
+                var player = Game.Instance.World.GetPlayer(id);
+                if (player != null)
                 {
                     player.X += input.Dx * 5;
                     player.Y += input.Dy * 5;
@@ -119,7 +119,7 @@ namespace GameServer {
                 state = new StateMessage
                 {
                     ServerTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
-                    Players = players.Values.ToList()
+                    Players = Game.Instance.World.GetPlayers()
                 };
             }
             Console.WriteLine($"Broadcasting state with {state.Players.Count} players");
@@ -140,98 +140,4 @@ namespace GameServer {
             client.GetStream().Write(bytes, 0, bytes.Length);
         }
     }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    //    static void Main(string[] args)
-    //    {
-    //        server = new TcpListener(IPAddress.Any, 5000);
-    //        server.Start();
-    //        Console.WriteLine("Server started on port 5000...");
-
-    //        while (true)
-    //        {
-    //            TcpClient client = server.AcceptTcpClient();
-    //            int id;
-    //            lock (locker)
-    //            {
-    //                id = nextId++;
-    //                clients[id] = client;
-    //                players[id] = new PlayerState { Id = id, X = 100, Y = 100 };
-    //            }
-    //            Console.WriteLine($"Client {id} connected!");
-
-    //            Thread t = new Thread(() => HandleClient(id, client));
-    //            t.Start();
-    //        }
-    //    }
-
-    //    static void HandleClient(int id, TcpClient client)
-    //    {
-    //        using var reader = new StreamReader(client.GetStream(), Encoding.UTF8);
-    //        string? line;
-
-    //        try
-    //        {
-    //            while ((line = reader.ReadLine()) != null)
-    //            {
-    //                PlayerState updated = JsonSerializer.Deserialize<PlayerState>(line)!;
-
-    //                lock (locker)
-    //                {
-    //                    players[id].X = updated.X;
-    //                    players[id].Y = updated.Y;
-    //                }
-
-    //                BroadcastGameState();
-    //            }
-    //        }
-    //        catch
-    //        {
-    //            // client disconnected
-    //        }
-
-    //        lock (locker)
-    //        {
-    //            clients.Remove(id);
-    //            players.Remove(id);
-    //        }
-
-    //        Console.WriteLine($"Client {id} disconnected.");
-    //        BroadcastGameState();
-    //    }
-
-    //    static void BroadcastGameState()
-    //    {
-    //        string json;
-    //        lock (locker)
-    //        {
-    //            json = JsonSerializer.Serialize(players.Values) + "\n"; // <-- add newline
-    //        }
-
-    //        byte[] data = Encoding.UTF8.GetBytes(json);
-    //        foreach (var kv in clients)
-    //        {
-    //            try
-    //            {
-    //                kv.Value.GetStream().Write(data, 0, data.Length);
-    //            }
-    //            catch { }
-    //        }
-    //    }
-    //}
 }
