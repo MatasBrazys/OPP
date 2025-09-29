@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
+using GameShared.Types.Players;
 
 namespace GameShared.Types
 {
@@ -16,6 +17,7 @@ namespace GameShared.Types
 
         public void AddEntity(Entity entity)
         {
+            Console.WriteLine($"World.AddEntity: world={GetHashCode()}, type={entity.GetType().Name}");
             Entities.Add(entity);
         }
 
@@ -24,14 +26,15 @@ namespace GameShared.Types
             Entities.Remove(entity);
         }
 
-        public PlayerState GetPlayer(int id)
+        public PlayerRole? GetPlayer(int id)
         {
-            return Entities.OfType<PlayerState>().FirstOrDefault(p => p.Id == id);
+            return Entities?.OfType<PlayerRole>()?.FirstOrDefault(p => p.Id == id);
         }
 
-        public List<PlayerState> GetPlayers()
+        public List<PlayerRole> GetPlayers()
         {
-            return Entities.OfType<PlayerState>().ToList();
+            Console.WriteLine($"World.GetPlayers: world={GetHashCode()}, countIndex={Entities.OfType<PlayerState>().ToList().Count}");
+            return Entities.OfType<PlayerRole>().ToList();
         }
 
         public void Update()

@@ -1,12 +1,14 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Data;
+using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
-using GameShared.Types;
 using GameShared.Messages;
-using System.Linq;
-using System.Collections.Generic;
+using GameShared.Types;
+using GameShared.Types.DTOs;
 
 namespace GameServer
 {
@@ -14,8 +16,11 @@ namespace GameServer
     {
         static TcpListener listener;
         static Dictionary<int, TcpClient> clients = new();
+        static Dictionary<int, string> clientRoles = new();
         static int nextId = 1;
         static object locker = new object();
+
+        static readonly string[] AllRoles = new[] { "hunter", "mage", "defender" };
 
         public void Start(int port)
         {
@@ -27,12 +32,29 @@ namespace GameServer
             {
                 var client = listener.AcceptTcpClient();
                 int id;
+                string role;
                 lock (locker)
                 {
+                    // Determine available roles (those not currently used)
+                    var used = clientRoles.Values.ToHashSet(StringComparer.OrdinalIgnoreCase);
+                    var available = AllRoles.Where(r => !used.Contains(r)).ToList();
+
+                    if (available.Count == 0)
+                    {
+                        // Max 3 players already connected
+                        SendMessage(client, new ErrorMessage { Code = "server_full", Detail = "All roles are taken." });
+                        client.Close();
+                        continue;
+                    }
+
+                    // Pick a random role from the remaining ones
+                    role = available[Random.Shared.Next(available.Count)];
+
                     id = nextId++;
                     clients[id] = client;
-                    var player = new PlayerState { Id = id, X = 100, Y = 100 };
-                    Game.Instance.World.AddEntity(player);
+                    clientRoles[id] = role;
+
+                    var player = Game.Instance.CreatePlayer(role, id);
                 }
                 SendMessage(client, new WelcomeMessage { Id = id, Type = "welcome" });
                 SendStateTo(client);
@@ -48,6 +70,16 @@ namespace GameServer
             {
                 ServerTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
                 Players = Game.Instance.World.GetPlayers()
+                    .Select(p => new PlayerDto
+                    {
+                        Id = p.Id,
+                        X = p.X,
+                        Y = p.Y,
+                        Health = p.Health,
+                        RoleType = p.RoleType, // or a RoleType property
+                        RoleColor = p.RoleColor.Name
+                    })
+                    .ToList()
             };
             SendMessage(client, snapshot);
         }
@@ -92,6 +124,9 @@ namespace GameServer
                     var player = Game.Instance.World.GetPlayer(id);
                     if (player != null)
                         Game.Instance.World.RemoveEntity(player);
+
+                    // Free role for reuse
+                    clientRoles.Remove(id);
                 }
                 BroadcastState();
             }
@@ -116,10 +151,21 @@ namespace GameServer
             StateMessage state;
             lock (locker)
             {
+                Console.WriteLine($"Server.BroadcastState reading from world: {Game.Instance.World.GetHashCode()}");
                 state = new StateMessage
                 {
                     ServerTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
                     Players = Game.Instance.World.GetPlayers()
+                        .Select(p => new PlayerDto
+                        {
+                            Id = p.Id,
+                            X = p.X,
+                            Y = p.Y,
+                            Health = p.Health,
+                            RoleType = p.RoleType, // or a RoleType property
+                            RoleColor = p.RoleColor.Name
+                        })
+                        .ToList()
                 };
             }
             Console.WriteLine($"Broadcasting state with {state.Players.Count} players");
