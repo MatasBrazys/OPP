@@ -22,6 +22,7 @@ namespace GameServer
 
         static readonly string[] AllRoles = new[] { "hunter", "mage", "defender" };
 
+
         public void Start(int port)
         {
             listener = new TcpListener(IPAddress.Any, port);
@@ -49,6 +50,7 @@ namespace GameServer
 
                     // Pick a random role from the remaining ones
                     role = available[Random.Shared.Next(available.Count)];
+
 
                     id = nextId++;
                     clients[id] = client;
