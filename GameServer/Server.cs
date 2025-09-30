@@ -1,11 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Dynamic;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
+using System.IO;
 
 class PlayerState
 {
@@ -16,15 +16,32 @@ class PlayerState
 
 class Server
 {
-    static TcpListener server;
-    static Dictionary<int, TcpClient> clients = new Dictionary<int, TcpClient>();
-    static Dictionary<int, PlayerState> players = new Dictionary<int, PlayerState>();
-    static int nextId = 1;
-    static object locker = new object();
+    private static Server? _instance;
+    private static readonly object locker = new object();
 
-    static void Main(string[] args)
+    private TcpListener server;
+    private Dictionary<int, TcpClient> clients = new Dictionary<int, TcpClient>();
+    private Dictionary<int, PlayerState> players = new Dictionary<int, PlayerState>();
+    private int nextId = 1;
+
+    public static Server Instance
+    {
+        get
+        {
+            lock (locker)
+            {
+                return _instance ??= new Server();
+            }
+        }
+    }
+
+    private Server()
     {
         server = new TcpListener(IPAddress.Any, 5000);
+    }
+
+    public void Start()
+    {
         server.Start();
         Console.WriteLine("Server started on port 5000...");
 
@@ -45,7 +62,7 @@ class Server
         }
     }
 
-    static void HandleClient(int id, TcpClient client)
+    private void HandleClient(int id, TcpClient client)
     {
         using var reader = new StreamReader(client.GetStream(), Encoding.UTF8);
         string? line;
@@ -80,12 +97,12 @@ class Server
         BroadcastGameState();
     }
 
-    static void BroadcastGameState()
+    private void BroadcastGameState()
     {
         string json;
         lock (locker)
         {
-            json = JsonSerializer.Serialize(players.Values) + "\n"; // <-- add newline
+            json = JsonSerializer.Serialize(players.Values) + "\n";
         }
 
         byte[] data = Encoding.UTF8.GetBytes(json);
