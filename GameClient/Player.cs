@@ -1,29 +1,24 @@
 using System.Drawing;
 
-namespace GameClient
+public class Player
 {
-    public class Player
+    public int Id { get; }
+    public int X { get; } // tile coordinates
+    public int Y { get; } // tile coordinates
+    public Color Color { get; }
+
+    public Player(int id, int x, int y, Color color)
     {
-        public int Id { get; set; }
-        public int X { get; set; }
-        public int Y { get; set; }
-        public int Size { get; } = 30;
-        public Color Color { get; set; }
-
-        public Player(int id, int x, int y, Color color)
-        {
-            Id = id;
-            X = x;
-            Y = y;
-            Color = color;
-        }
-
-        public void Draw(Graphics g)
-        {
-            using (Brush b = new SolidBrush(Color))
-            {
-                g.FillRectangle(b, X, Y, Size, Size);
-            }
-        }
+        Id = id;
+        X = x;
+        Y = y;
+        Color = color;
     }
+
+ public void Draw(Graphics g)
+{
+    int size = 30;
+    // Server already sends pixel X, Y → no scaling with tileSize
+    g.FillEllipse(new SolidBrush(Color), X, Y, size, size);
+}
 }

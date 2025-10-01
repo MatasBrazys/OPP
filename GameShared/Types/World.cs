@@ -10,8 +10,16 @@ namespace GameShared.Types
         public List<Entity> Entities { get; private set; }
 
         public World()
-        {
+        {   var mapJsonText = File.ReadAllText("../assets/map.json");
             Map = new Map();
+            Map.LoadFromJson(mapJsonText);
+            Console.WriteLine(Path.GetFullPath("../assets/map.json"));
+
+            System.Console.WriteLine( $"Map loaded: width={Map.Width}, height={Map.Height}");
+            var tile = Map.GetTile(0, 0);
+            //Console.WriteLine($"Tile X={tile.X}, Y={tile.Y}, Id={tile.Id}");
+
+            Console.WriteLine(tile.TileType); 
             Entities = new List<Entity>();
         }
 

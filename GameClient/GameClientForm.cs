@@ -1,12 +1,16 @@
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.IO;
 using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Windows.Forms;
 using GameShared.Messages;
+using GameShared.Map;
+using GameShared.Types;
+using GameClient.Rendering;
 
 namespace GameClient
 {
@@ -19,6 +23,15 @@ namespace GameClient
         private Dictionary<int, Player> players = new();
         private int dx, dy; // Movement direction
         private System.Windows.Forms.Timer gameTimer;
+        private Map map;
+        private List<TileRenderer> tileRenderers = new();
+
+        private Image grassSprite = Image.FromFile("../assets/grass.png");
+        private Image treeSprite = Image.FromFile("../assets/tree.png");
+        private Image houseSprite = Image.FromFile("../assets/house.png");
+        private int TileSize = 128;
+
+        
 
         public GameClientForm()
         {
@@ -35,6 +48,29 @@ namespace GameClient
 
         private void GameClientForm_Load(object? sender, EventArgs e)
         {
+            // --- Load map and tile renderers ---
+            map = new Map();
+            var json = File.ReadAllText("../assets/map.json");
+            map.LoadFromJson(json);
+
+            tileRenderers.Clear();
+            for (int x = 0; x < map.Width; x++)
+            {
+                for (int y = 0; y < map.Height; y++)
+                {
+                    var tile = map.GetTile(x, y);
+                    Image sprite = tile switch
+                    {
+                        GrassTile => grassSprite,
+                        TreeTile => treeSprite,
+                        HouseTile => houseSprite,
+                        _ => grassSprite
+                    };
+                    tileRenderers.Add(new TileRenderer(tile, sprite, TileSize));
+                }
+            }
+
+            // --- Connect to server ---
             try
             {
                 client = new TcpClient("127.0.0.1", 5000);
@@ -50,12 +86,10 @@ namespace GameClient
 
         private void ReceiveLoop()
         {
-            Console.WriteLine("Client started receive loop");
             using var reader = new StreamReader(stream, Encoding.UTF8);
             string? line;
             while ((line = reader.ReadLine()) != null)
             {
-                Console.WriteLine($"Received: {line}");
                 try
                 {
                     var doc = JsonDocument.Parse(line);
@@ -66,6 +100,7 @@ namespace GameClient
                             var welcome = JsonSerializer.Deserialize<WelcomeMessage>(line);
                             myId = welcome.Id;
                             break;
+
                         case "state":
                             var state = JsonSerializer.Deserialize<StateMessage>(line);
                             lock (players)
@@ -78,18 +113,16 @@ namespace GameClient
                             }
                             Invalidate();
                             break;
-                        case "pong":
-                            // Optionally handle pong
-                            break;
+
                         case "error":
                             var error = JsonSerializer.Deserialize<ErrorMessage>(line);
                             MessageBox.Show($"Server error: {error?.Detail}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                             break;
+
                         case "goodbye":
                             MessageBox.Show("Disconnected: Server closed connection.", "Goodbye", MessageBoxButtons.OK, MessageBoxIcon.Information);
                             Application.Exit();
                             break;
-                            // Add more cases as needed
                     }
                 }
                 catch (Exception ex)
@@ -101,7 +134,6 @@ namespace GameClient
 
         private void GameLoop(object? sender, EventArgs e)
         {
-            // Only send input if connected and have a valid id
             if (stream != null && myId != 0)
             {
                 var inputMsg = new InputMessage { Dx = dx, Dy = dy };
@@ -109,21 +141,39 @@ namespace GameClient
                 var data = Encoding.UTF8.GetBytes(json);
                 try { stream.Write(data, 0, data.Length); } catch { }
             }
+
+            Invalidate(); // trigger redraw
         }
+        
 
         private void GameClientForm_Paint(object? sender, PaintEventArgs e)
         {
-            e.Graphics.DrawString($"MyID: {myId}", SystemFonts.DefaultFont, Brushes.Black, 10, 10);
-            e.Graphics.DrawString($"Players: {players.Count}", SystemFonts.DefaultFont, Brushes.Black, 10, 30);
+            // Draw tiles
+            foreach (var r in tileRenderers)
+                r.Draw(e.Graphics);
+
+            // Draw players
             lock (players)
             {
                 foreach (var p in players.Values)
                 {
                     p.Draw(e.Graphics);
 
-                    e.Graphics.DrawString($"ID:{p.Id} ({p.X},{p.Y})",
-                        SystemFonts.DefaultFont, Brushes.Black, p.X, p.Y - 20);
+                    e.Graphics.DrawString(
+                        $"ID:{p.Id} ({p.X / TileSize},{p.Y / TileSize})",
+                        SystemFonts.DefaultFont,
+                        Brushes.Black,
+                        p.X, p.Y - 25
+                    );
                 }
+            }
+            using (var pen = new Pen(Color.Black, 1))
+            {
+                for (int x = 0; x <= map.Width; x++)
+                    e.Graphics.DrawLine(pen, x * TileSize, 0, x * TileSize, map.Height * TileSize);
+
+                for (int y = 0; y <= map.Height; y++)
+                    e.Graphics.DrawLine(pen, 0, y * TileSize, map.Width * TileSize, y * TileSize);
             }
         }
 
