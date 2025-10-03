@@ -73,7 +73,7 @@ namespace GameClient
             // --- Connect to server ---
             try
             {
-                client = new TcpClient("127.0.0.1", 5000);
+                client = new TcpClient("25.55.216.17", 5000);
                 stream = client.GetStream();
                 receiveThread = new Thread(ReceiveLoop) { IsBackground = true };
                 receiveThread.Start();
