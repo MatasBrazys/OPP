@@ -1,3 +1,4 @@
+// File: GameClient/GameClientForm.cs
 using System;
 using System.Collections.Generic;
 using System.Drawing;
@@ -20,57 +21,51 @@ namespace GameClient
         private NetworkStream? stream;
         private Thread? receiveThread;
         private int myId;
-        private Dictionary<int, Player> players = new();
-        private int dx, dy; // Movement direction
-        private System.Windows.Forms.Timer gameTimer;
-        private Map map;
-        private List<TileRenderer> tileRenderers = new();
+        private readonly Dictionary<int, Player> players = new();
+        private int dx, dy;
+        private readonly System.Windows.Forms.Timer gameTimer;
+        private Map map = new();
+        private readonly List<TileRenderer> tileRenderers = new();
 
-        private Image grassSprite = Image.FromFile("../assets/grass.png");
-        private Image treeSprite = Image.FromFile("../assets/tree.png");
-        private Image houseSprite = Image.FromFile("../assets/house.png");
-        private int TileSize = 128;
-
-        
+        private readonly Image grassSprite = Image.FromFile("../assets/grass.png");
+        private readonly Image treeSprite = Image.FromFile("../assets/tree.png");
+        private readonly Image houseSprite = Image.FromFile("../assets/house.png");
+        private const int TileSize = 128;
 
         public GameClientForm()
         {
-            this.KeyDown += GameClientForm_KeyDown;
-            this.KeyUp += GameClientForm_KeyUp;
-            this.Paint += GameClientForm_Paint;
-            this.Load += GameClientForm_Load;
+            KeyDown += GameClientForm_KeyDown;
+            KeyUp += GameClientForm_KeyUp;
+            Paint += GameClientForm_Paint;
+            Load += GameClientForm_Load;
 
-            gameTimer = new System.Windows.Forms.Timer();
-            gameTimer.Interval = 30;
+            gameTimer = new System.Windows.Forms.Timer { Interval = 30 };
             gameTimer.Tick += GameLoop;
             gameTimer.Start();
         }
 
         private void GameClientForm_Load(object? sender, EventArgs e)
         {
-            // --- Load map and tile renderers ---
-            map = new Map();
+            // Load map
             var json = File.ReadAllText("../assets/map.json");
             map.LoadFromJson(json);
 
             tileRenderers.Clear();
             for (int x = 0; x < map.Width; x++)
+            for (int y = 0; y < map.Height; y++)
             {
-                for (int y = 0; y < map.Height; y++)
+                var tile = map.GetTile(x, y);
+                Image sprite = tile switch
                 {
-                    var tile = map.GetTile(x, y);
-                    Image sprite = tile switch
-                    {
-                        GrassTile => grassSprite,
-                        TreeTile => treeSprite,
-                        HouseTile => houseSprite,
-                        _ => grassSprite
-                    };
-                    tileRenderers.Add(new TileRenderer(tile, sprite, TileSize));
-                }
+                    GrassTile => grassSprite,
+                    TreeTile => treeSprite,
+                    HouseTile => houseSprite,
+                    _ => grassSprite
+                };
+                tileRenderers.Add(new TileRenderer(tile, sprite, TileSize));
             }
 
-            // --- Connect to server ---
+            // Connect to server
             try
             {
                 client = new TcpClient("25.55.216.17", 5000);
@@ -86,6 +81,8 @@ namespace GameClient
 
         private void ReceiveLoop()
         {
+            if (stream == null) return;
+
             using var reader = new StreamReader(stream, Encoding.UTF8);
             string? line;
             while ((line = reader.ReadLine()) != null)
@@ -94,6 +91,7 @@ namespace GameClient
                 {
                     var doc = JsonDocument.Parse(line);
                     var type = doc.RootElement.GetProperty("Type").GetString();
+
                     switch (type)
                     {
                         case "welcome":
@@ -103,12 +101,18 @@ namespace GameClient
 
                         case "state":
                             var state = JsonSerializer.Deserialize<StateMessage>(line);
+                            if (state == null) break;
+
                             lock (players)
                             {
                                 players.Clear();
-                                foreach (var ps in state?.Players)
+                                foreach (var ps in state.Players)
                                 {
-                                    players[ps.Id] = new Player(ps.Id, ps.X, ps.Y, ps.Id == myId ? Color.Blue : Color.Red);
+                                    players[ps.Id] = new Player(
+                                        ps.Id,
+                                        ps.X,
+                                        ps.Y,
+                                        ps.Id == myId ? Color.Blue : Color.Red);
                                 }
                             }
                             Invalidate();
@@ -116,11 +120,11 @@ namespace GameClient
 
                         case "error":
                             var error = JsonSerializer.Deserialize<ErrorMessage>(line);
-                            MessageBox.Show($"Server error: {error?.Detail}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                            MessageBox.Show($"Server error: {error?.Detail}");
                             break;
 
                         case "goodbye":
-                            MessageBox.Show("Disconnected: Server closed connection.", "Goodbye", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                            MessageBox.Show("Server closed connection.");
                             Application.Exit();
                             break;
                     }
@@ -134,47 +138,38 @@ namespace GameClient
 
         private void GameLoop(object? sender, EventArgs e)
         {
-            if (stream != null && myId != 0)
-            {
-                var inputMsg = new InputMessage { Dx = dx, Dy = dy };
-                var json = JsonSerializer.Serialize(inputMsg) + "\n";
-                var data = Encoding.UTF8.GetBytes(json);
-                try { stream.Write(data, 0, data.Length); } catch { }
-            }
+            if (stream == null || myId == 0) return;
 
-            Invalidate(); // trigger redraw
+            var msg = new InputMessage { Dx = dx, Dy = dy };
+            var json = JsonSerializer.Serialize(msg) + "\n";
+            var data = Encoding.UTF8.GetBytes(json);
+
+            try { stream.Write(data, 0, data.Length); } catch { }
+
+            Invalidate();
         }
-        
 
         private void GameClientForm_Paint(object? sender, PaintEventArgs e)
         {
-            // Draw tiles
             foreach (var r in tileRenderers)
                 r.Draw(e.Graphics);
 
-            // Draw players
             lock (players)
             {
                 foreach (var p in players.Values)
                 {
                     p.Draw(e.Graphics);
-
-                    e.Graphics.DrawString(
-                        $"ID:{p.Id} ({p.X / TileSize},{p.Y / TileSize})",
-                        SystemFonts.DefaultFont,
-                        Brushes.Black,
-                        p.X, p.Y - 25
-                    );
+                    e.Graphics.DrawString($"ID:{p.Id} ({p.X / TileSize},{p.Y / TileSize})",
+                        SystemFonts.DefaultFont, Brushes.Black, p.X, p.Y - 25);
                 }
             }
-            using (var pen = new Pen(Color.Black, 1))
-            {
-                for (int x = 0; x <= map.Width; x++)
-                    e.Graphics.DrawLine(pen, x * TileSize, 0, x * TileSize, map.Height * TileSize);
 
-                for (int y = 0; y <= map.Height; y++)
-                    e.Graphics.DrawLine(pen, 0, y * TileSize, map.Width * TileSize, y * TileSize);
-            }
+            using var pen = new Pen(Color.Black, 1);
+            for (int x = 0; x <= map.Width; x++)
+                e.Graphics.DrawLine(pen, x * TileSize, 0, x * TileSize, map.Height * TileSize);
+
+            for (int y = 0; y <= map.Height; y++)
+                e.Graphics.DrawLine(pen, 0, y * TileSize, map.Width * TileSize, y * TileSize);
         }
 
         private void GameClientForm_KeyDown(object? sender, KeyEventArgs e)
