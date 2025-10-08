@@ -9,10 +9,15 @@ using System.Text.Json;
 using GameShared.Messages;
 using GameShared.Types;
 using GameShared.Types.DTOs;
+using GameServer.Events;
+using GameServer.Observer;
+using GameShared.Messages;
+using GameServer.Commands;
+using static GameServer.Events.GameEvent;
 
 namespace GameServer
 {
-    public class Server
+    public class Server : IGameObserver
     {
         static TcpListener listener;
         static Dictionary<int, TcpClient> clients = new();
@@ -22,9 +27,14 @@ namespace GameServer
 
         static readonly string[] AllRoles = new[] { "hunter", "mage", "defender" };
 
+        private CollisionDetector _collisionDetector;
+        private List<CommandHandler> _commandHandlers;
 
         public void Start(int port)
         {
+            _collisionDetector = new CollisionDetector();
+            InitializeCommandHandlers();
+
             listener = new TcpListener(IPAddress.Any, port);
             listener.Start();
             Console.WriteLine($"Server started on port {port}");
@@ -65,6 +75,67 @@ namespace GameServer
                 thread.Start();
             }
         }
+        private void InitializeCommandHandlers()
+        {
+            _commandHandlers = new List<CommandHandler>
+            {
+                new CollisionCommandHandler(this)
+            };
+
+            // Register all command handlers with collision detector
+            foreach (var handler in _commandHandlers)
+            {
+                _collisionDetector.RegisterObserver(handler);
+            }
+
+            // Register server itself as observer if needed
+            _collisionDetector.RegisterObserver(this);
+        }
+
+        private void HandleInput(int id, InputMessage input)
+        {
+            lock (locker)
+            {
+                var player = Game.Instance.World.GetPlayer(id);
+                if (player != null)
+                {
+                    player.X += input.Dx * 5;
+                    player.Y += input.Dy * 5;
+
+                    // Check for collisions after movement
+                    var players = Game.Instance.World.GetPlayers();
+                    _collisionDetector.CheckCollisions(players);
+                }
+            }
+            BroadcastState();
+        }
+        public void OnGameEvent(GameEvent gameEvent)
+        {
+            // Server-level handling of game events
+            Console.WriteLine($"Server received event: {gameEvent.EventType} at {gameEvent.Timestamp}");
+
+            if (gameEvent is CollisionEvent collision)
+            {
+                // Server-wide collision handling (logging, analytics, etc.)
+                LogCollision(collision);
+            }
+        }
+        private void LogCollision(CollisionEvent collision)
+        {
+            // Log collision for analytics or debugging
+            var logEntry = $"{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss} - Collision: {collision.Entity1Id}({collision.Entity1Type}) vs {collision.Entity2Id}({collision.Entity2Type}) at ({collision.X:F1}, {collision.Y:F1})";
+            Console.WriteLine(logEntry);
+        }
+
+        // Helper method to broadcast to all clients
+        public void BroadcastToAll<T>(T message)
+        {
+            foreach (var client in clients.Values)
+            {
+                SendMessage(client, message);
+            }
+        }
+
 
         private void SendStateTo(TcpClient client)
         {
@@ -89,11 +160,13 @@ namespace GameServer
         private void HandleClient(int id, TcpClient client)
         {
             Console.WriteLine($"Started handling client {id}");
-            using var reader = new StreamReader(client.GetStream(), Encoding.UTF8);
+            var stream = client.GetStream();
+            using var reader = new StreamReader(stream, Encoding.UTF8);
+
             string? line;
             try
             {
-                while ((line = reader.ReadLine()) != null)
+                while (client.Connected && (line = reader.ReadLine()) != null)
                 {
                     Console.WriteLine($"Received from client {id}: {line}");
                     var doc = JsonDocument.Parse(line);
@@ -114,12 +187,22 @@ namespace GameServer
                     }
                 }
             }
-            catch
+            catch (IOException ex)
             {
-                // Handle disconnect
+                Console.WriteLine($"Client {id} disconnected (IOException): {ex.Message}");
+            }
+            catch (JsonException ex)
+            {
+                Console.WriteLine($"Client {id} sent invalid JSON: {ex.Message}");
+                SendMessage(client, new ErrorMessage { Code = "invalid_json", Detail = "Malformed JSON message" });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error handling client {id}: {ex.Message}");
             }
             finally
             {
+                Console.WriteLine($"Client {id} disconnected");
                 lock (locker)
                 {
                     clients.Remove(id);
@@ -133,21 +216,6 @@ namespace GameServer
                 BroadcastState();
             }
         }
-
-        private void HandleInput(int id, InputMessage input)
-        {
-            lock (locker)
-            {
-                var player = Game.Instance.World.GetPlayer(id);
-                if (player != null)
-                {
-                    player.X += input.Dx * 5;
-                    player.Y += input.Dy * 5;
-                }
-            }
-            BroadcastState();
-        }
-
         private void BroadcastState()
         {
             StateMessage state;
