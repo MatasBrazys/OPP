@@ -1,6 +1,4 @@
-﻿using System;
-using GameShared.Types;
-using GameShared.Messages;
+﻿using GameShared.Types;
 using GameShared.Factories;
 using GameShared.Types.Players;
 
@@ -44,16 +42,33 @@ namespace GameServer
 
         public PlayerRole CreatePlayer(string roleType, int id)
         {
-            var xCoord = roleType.ToLower() switch
-            {
-                "hunter" => 50,
-                "mage" => 150,
-                "defender" => 250,
-                _ => throw new ArgumentException("Invalid player role type")
-            };
-            var player = PlayerFactory.CreatePlayer(roleType, id, xCoord, 100);
+            // Find a passable tile to spawn the player
+            var (x, y) = FindPassableTile();
+
+            var player = PlayerFactory.CreatePlayer(roleType, id, x, y);
             World.AddEntity(player);
             return player;
+        }
+
+        // Helper method to find a free, passable tile
+        private (int x, int y) FindPassableTile()
+        {
+            const int TileSize = 128;
+
+            for (int ty = 0; ty < World.Map.Height; ty++)
+            {
+                for (int tx = 0; tx < World.Map.Width; tx++)
+                {
+                    var tile = World.Map.GetTile(tx, ty);
+                    if (tile.Passable)
+                    {
+                        return (tx * TileSize, ty * TileSize);
+                    }
+                }
+            }
+
+            // Fallback if no passable tile found
+            return (0, 0);
         }
 
         public void Tick(int dt)

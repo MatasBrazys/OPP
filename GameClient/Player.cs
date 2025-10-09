@@ -1,5 +1,4 @@
 // File: GameClient/Player.cs
-using System.Drawing;
 
 namespace GameClient
 {

@@ -1,13 +1,7 @@
 // File: GameClient/GameClientForm.cs
-using System;
-using System.Collections.Generic;
-using System.Drawing;
-using System.IO;
 using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
-using System.Threading;
-using System.Windows.Forms;
 using GameShared.Messages;
 using GameShared.Map;
 using GameShared.Types;
@@ -30,6 +24,10 @@ namespace GameClient
         private readonly Image grassSprite = Image.FromFile("../assets/grass.png");
         private readonly Image treeSprite = Image.FromFile("../assets/tree.png");
         private readonly Image houseSprite = Image.FromFile("../assets/house.png");
+        private readonly Image appleSprite = Image.FromFile("../assets/apple.png");
+        private readonly Image fishSprite = Image.FromFile("../assets/fish.png");
+        private readonly Image waterSprite = Image.FromFile("../assets/water.png");
+        private readonly Image sandSprite = Image.FromFile("../assets/sand.png");
         private const int TileSize = 128;
 
         public GameClientForm()
@@ -60,6 +58,10 @@ namespace GameClient
                     GrassTile => grassSprite,
                     TreeTile => treeSprite,
                     HouseTile => houseSprite,
+                    AppleTile => appleSprite,
+                    FishTile => fishSprite,
+                    WaterTile => waterSprite,
+                    SandTile => sandSprite,
                     _ => grassSprite
                 };
                 tileRenderers.Add(new TileRenderer(tile, sprite, TileSize));
@@ -68,7 +70,7 @@ namespace GameClient
             // Connect to server
             try
             {
-                client = new TcpClient("25.55.216.17", 5000);
+                client = new TcpClient("127.0.0.1", 5000);
                 stream = client.GetStream();
                 receiveThread = new Thread(ReceiveLoop) { IsBackground = true };
                 receiveThread.Start();

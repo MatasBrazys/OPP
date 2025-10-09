@@ -1,5 +1,4 @@
 // File: GameClient/Rendering/TileRenderer.cs
-using System.Drawing;
 using GameShared.Map;
 
 namespace GameClient.Rendering

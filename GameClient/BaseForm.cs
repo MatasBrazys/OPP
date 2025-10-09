@@ -1,6 +1,4 @@
 // File: GameClient/BaseForm.cs
-using System.Drawing;
-using System.Windows.Forms;
 
 namespace GameClient
 {

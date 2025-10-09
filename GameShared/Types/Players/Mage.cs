@@ -1,10 +1,11 @@
 using System.Drawing;
+using GameShared.Strategies;
 
 namespace GameShared.Types.Players
 {
     public class Mage : PlayerRole
     {
-        public Mage()
+        public Mage() : base(new NormalMovement())
         {
             Health = 5;
             RoleType = "Mage";

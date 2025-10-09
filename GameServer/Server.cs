@@ -1,17 +1,12 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Data;
-using System.Linq;
+﻿using System.Data;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
 using GameShared.Messages;
-using GameShared.Types;
 using GameShared.Types.DTOs;
 using GameServer.Events;
 using GameServer.Observer;
-using GameShared.Messages;
 using GameServer.Commands;
 using static GameServer.Events.GameEvent;
 
@@ -97,16 +92,37 @@ namespace GameServer
             lock (locker)
             {
                 var player = Game.Instance.World.GetPlayer(id);
-                if (player != null)
-                {
-                    player.X += input.Dx * 5;
-                    player.Y += input.Dy * 5;
+                if (player == null) return;
 
-                    // Check for collisions after movement
-                    var players = Game.Instance.World.GetPlayers();
-                    _collisionDetector.CheckCollisions(players);
+                int currentTileX = player.X / 128;
+                int currentTileY = player.Y / 128;
+                var currentTile = Game.Instance.World.Map.GetTile(currentTileX, currentTileY);
+
+                int speed = player.GetSpeed();
+                int newX = player.X + input.Dx * speed;
+                int newY = player.Y + input.Dy * speed;
+
+                int targetTileX = newX / 128;
+                int targetTileY = newY / 128;
+
+                if (targetTileX < 0 || targetTileX >= Game.Instance.World.Map.Width ||
+                    targetTileY < 0 || targetTileY >= Game.Instance.World.Map.Height)
+                    return;
+
+                var targetTile = Game.Instance.World.Map.GetTile(targetTileX, targetTileY);
+
+                if (player.CanMove(targetTile))
+                {
+                    player.X = newX;
+                    player.Y = newY;
+
+                    player.OnMoveTile(targetTile);
                 }
+
+                var players = Game.Instance.World.GetPlayers();
+                _collisionDetector.CheckCollisions(players);
             }
+
             BroadcastState();
         }
         public void OnGameEvent(GameEvent gameEvent)

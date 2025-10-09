@@ -35,4 +35,30 @@ public record HouseTile(int X, int Y) : TileData(X, Y)
     public List<string> AvailableQuests { get; init; } = new();
 }
 
-    
+public record AppleTile(int X, int Y) : TileData(X, Y)
+{
+    public int id = 3;
+    public override string TileType => "Apple";
+    public override bool Passable => true;
+}
+
+public record FishTile(int X, int Y) : TileData(X, Y)
+{
+    public int id = 4;
+    public override string TileType => "Fish";
+    public override bool Passable => true;
+}
+
+public record WaterTile(int X, int Y) : TileData(X, Y)
+{
+    public int id = 5;
+    public override string TileType => "Water";
+    public override bool Passable => false;
+}
+
+public record SandTile(int X, int Y) : TileData(X, Y)
+{
+    public int id = 6;
+    public override string TileType => "Sand";
+    public override bool Passable => true;
+}

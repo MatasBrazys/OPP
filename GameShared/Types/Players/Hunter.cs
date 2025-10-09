@@ -1,10 +1,11 @@
 using System.Drawing;
+using GameShared.Strategies;
 
 namespace GameShared.Types.Players
 {
     public class Hunter : PlayerRole
     {
-        public Hunter()
+        public Hunter() : base(new NormalMovement())
         {
             Health = 5;
             RoleType = "Hunter";

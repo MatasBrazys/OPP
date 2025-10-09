@@ -1,10 +1,11 @@
 using System.Drawing;
+using GameShared.Strategies;
 
 namespace GameShared.Types.Players
 {
     public class Defender : PlayerRole
     {
-        public Defender()
+        public Defender() : base(new NormalMovement())
         {
             Health = 5;
             RoleType = "Defender";
