@@ -1,4 +1,4 @@
-﻿using GameShared.Types;
+﻿using GameShared.Types.Map;
 using GameShared.Factories;
 using GameShared.Types.Players;
 

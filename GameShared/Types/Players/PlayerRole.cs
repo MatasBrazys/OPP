@@ -1,6 +1,6 @@
 using System.Drawing;
 using GameShared.Strategies;
-using GameShared.Map;
+using GameShared.Types.Map;
 
 namespace GameShared.Types.Players
 {

@@ -1,4 +1,4 @@
-using GameShared.Map;
+using GameShared.Types.Map;
 
 namespace GameServer.GameLogic;
 

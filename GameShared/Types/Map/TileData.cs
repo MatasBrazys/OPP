@@ -1,10 +1,10 @@
 // .GameShared/Map/TileData.cs
-namespace GameShared.Map;
+using GameShared.Types;
 
-public abstract record TileData
+namespace GameShared.Types.Map;
+
+public abstract class TileData:Entity
 {
-    public int X { get; init; }
-    public int Y { get; init; }
     public virtual bool Passable => true;
     public abstract string TileType { get; }
     protected TileData(int x, int y)

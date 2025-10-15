@@ -1,4 +1,4 @@
-using GameShared.Map;
+using GameShared.Types.Map;
 using GameShared.Types.Players;
 
 namespace GameShared.Strategies

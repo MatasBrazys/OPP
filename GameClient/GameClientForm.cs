@@ -3,7 +3,7 @@ using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
 using GameShared.Messages;
-using GameShared.Map;
+using GameShared.Types.Map;
 using GameShared.Types;
 using GameClient.Rendering;
 
@@ -44,9 +44,7 @@ namespace GameClient
 
         private void GameClientForm_Load(object? sender, EventArgs e)
         {
-            // Load map
-            var json = File.ReadAllText("../assets/map.json");
-            map.LoadFromJson(json);
+            map.LoadFromText("../assets/map.txt");
 
             tileRenderers.Clear();
             for (int x = 0; x < map.Width; x++)
