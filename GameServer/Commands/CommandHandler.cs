@@ -1,5 +1,4 @@
 ﻿using GameServer.Events;
-using GameServer.Observer;
 using GameShared.Messages;
 using static GameServer.Events.GameEvent;
 
@@ -32,10 +31,8 @@ namespace GameServer.Commands
 
         private void HandleCollision(CollisionEvent collision)
         {
-            // Simply log and broadcast - no health reduction
             Console.WriteLine($"Collision detected between {collision.Entity1Type} (ID: {collision.Entity1Id}) and {collision.Entity2Type} (ID: {collision.Entity2Id}) at ({collision.X}, {collision.Y})");
 
-            // Broadcast collision to all clients
             var collisionMessage = new CollisionMessage
             {
                 Entity1Id = collision.Entity1Id,

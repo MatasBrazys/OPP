@@ -123,6 +123,11 @@ namespace GameClient
                             MessageBox.Show($"Server error: {error?.Detail}");
                             break;
 
+                        case "collision":
+                            var collision = JsonSerializer.Deserialize<CollisionMessage>(line);
+                            Console.WriteLine($"Collision occured at : {collision.X} {collision.Y}");
+                            break;
+
                         case "goodbye":
                             MessageBox.Show("Server closed connection.");
                             Application.Exit();

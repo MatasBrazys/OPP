@@ -6,7 +6,6 @@ using System.Text.Json;
 using GameShared.Messages;
 using GameShared.Types.DTOs;
 using GameServer.Events;
-using GameServer.Observer;
 using GameServer.Commands;
 using static GameServer.Events.GameEvent;
 
@@ -76,14 +75,10 @@ namespace GameServer
             {
                 new CollisionCommandHandler(this)
             };
-
-            // Register all command handlers with collision detector
             foreach (var handler in _commandHandlers)
             {
                 _collisionDetector.RegisterObserver(handler);
             }
-
-            // Register server itself as observer if needed
             _collisionDetector.RegisterObserver(this);
         }
 
@@ -143,7 +138,6 @@ namespace GameServer
             Console.WriteLine(logEntry);
         }
 
-        // Helper method to broadcast to all clients
         public void BroadcastToAll<T>(T message)
         {
             foreach (var client in clients.Values)
@@ -226,7 +220,6 @@ namespace GameServer
                     if (player != null)
                         Game.Instance.World.RemoveEntity(player);
 
-                    // Free role for reuse
                     clientRoles.Remove(id);
                 }
                 BroadcastState();
