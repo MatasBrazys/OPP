@@ -11,7 +11,7 @@ using static GameServer.Events.GameEvent;
 
 namespace GameServer
 {
-    public class Server : IGameObserver
+    public class Server : IObserver
     {
         static TcpListener listener;
         static Dictionary<int, TcpClient> clients = new();

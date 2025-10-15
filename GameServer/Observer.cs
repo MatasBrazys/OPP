@@ -1,6 +1,6 @@
 ﻿namespace GameServer
 {
-    public interface IGameObserver
+    public interface IObserver
     {
         void OnGameEvent(Events.GameEvent gameEvent);
     }

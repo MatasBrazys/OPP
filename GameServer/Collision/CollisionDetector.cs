@@ -2,7 +2,7 @@
 using GameServer.Events;
 using static GameServer.Events.GameEvent;
 
-public class CollisionDetector : ISubject
+public class CollisionDetector : Subject
 {
     public void CheckCollisions(IEnumerable<object> players)
     {

@@ -4,7 +4,7 @@ using static GameServer.Events.GameEvent;
 
 namespace GameServer.Commands
 {
-    public abstract class CommandHandler : IGameObserver
+    public abstract class CommandHandler : IObserver
     {
         public abstract void OnGameEvent(GameEvent gameEvent);
         public abstract string[] HandledEventTypes { get; }

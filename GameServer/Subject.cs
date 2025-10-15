@@ -6,12 +6,12 @@ using System.Threading.Tasks;
 
 namespace GameServer
 {
-    public abstract class ISubject
+    public abstract class Subject
     {
-        protected readonly List<IGameObserver> _observers = new();
+        protected readonly List<IObserver> _observers = new();
         protected readonly object _observerLock = new();
 
-        public virtual void RegisterObserver(IGameObserver observer)
+        public virtual void RegisterObserver(IObserver observer)
         {
             lock (_observerLock)
             {
@@ -20,7 +20,7 @@ namespace GameServer
             }
         }
 
-        public virtual void RemoveObserver(IGameObserver observer)
+        public virtual void RemoveObserver(IObserver observer)
         {
             lock (_observerLock)
             {
@@ -30,10 +30,10 @@ namespace GameServer
 
         public virtual void NotifyObservers(Events.GameEvent gameEvent)
         {
-            List<IGameObserver> observersCopy;
+            List<IObserver> observersCopy;
             lock (_observerLock)
             {
-                observersCopy = new List<IGameObserver>(_observers);
+                observersCopy = new List<IObserver>(_observers);
             }
 
             foreach (var observer in observersCopy)
