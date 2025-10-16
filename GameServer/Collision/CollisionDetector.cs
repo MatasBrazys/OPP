@@ -4,84 +4,81 @@ using static GameServer.Events.GameEvent;
 
 public class CollisionDetector : Subject
 {
-    public void CheckCollisions(IEnumerable<object> players)
+    public void CheckCollisions(IEnumerable<object> entities)
     {
-        var playerList = players.ToList();
+        var entityList = entities.ToList();
 
-        for (int i = 0; i < playerList.Count; i++)
+        for (int i = 0; i < entityList.Count; i++)
         {
-            for (int j = i + 1; j < playerList.Count; j++)
+            for (int j = i + 1; j < entityList.Count; j++)
             {
-                var player1 = playerList[i];
-                var player2 = playerList[j];
+                var entityA = entityList[i];
+                var entityB = entityList[j];
 
-                if (CheckAABBCollision(player1, player2))
+                if (CheckAABBCollision(entityA, entityB))
                 {
-                    var collisionEvent = new CollisionEvent(
-                        GetPlayerId(player1), GetPlayerId(player2),
-                        GetPlayerRole(player1), GetPlayerRole(player2),
-                        (GetPlayerX(player1) + GetPlayerX(player2)) / 2,
-                        (GetPlayerY(player1) + GetPlayerY(player2)) / 2
-                    );
+                    string typeA = GetEntityType(entityA);
+                    string typeB = GetEntityType(entityB);
+                    
 
+                    var collisionEvent = new CollisionEvent(
+                        GetEntityId(entityA), GetEntityId(entityB),
+                        typeA, typeB,
+                        (GetEntityX(entityA) + GetEntityX(entityB)) / 2,
+                        (GetEntityY(entityA) + GetEntityY(entityB)) / 2
+                    );
+                    //reik switcho ne playeriams
                     NotifyObservers(collisionEvent);
                 }
             }
         }
     }
 
-    private bool CheckAABBCollision(object playerA, object playerB)
+    private bool CheckAABBCollision(object entityA, object entityB)
     {
-        // Assuming each player has a bounding box of 50x50 pixels
-        const float playerSize = 50f;
+        const float size = 32f; // bounding box size
 
-        float aX = GetPlayerX(playerA);
-        float aY = GetPlayerY(playerA);
-        float bX = GetPlayerX(playerB);
-        float bY = GetPlayerY(playerB);
+        float aX = GetEntityX(entityA);
+        float aY = GetEntityY(entityA);
+        float bX = GetEntityX(entityB);
+        float bY = GetEntityY(entityB);
 
-        return aX < bX + playerSize &&
-               aX + playerSize > bX &&
-               aY < bY + playerSize &&
-               aY + playerSize > bY;
+        return aX < bX + size &&
+               aX + size > bX &&
+               aY < bY + size &&
+               aY + size > bY;
     }
 
-    private float GetPlayerX(object player)
+    private float GetEntityX(object entity)
     {
-        var prop = player.GetType().GetProperty("X");
-        if (prop != null)
-        {
-            var value = prop.GetValue(player);
-            return value is float floatValue ? floatValue : Convert.ToSingle(value);
-        }
-        return 0f;
+        var prop = entity.GetType().GetProperty("X");
+        if (prop == null) return 0f;
+
+        var value = prop.GetValue(entity);
+        return value is float f ? f : Convert.ToSingle(value);
     }
 
-    private float GetPlayerY(object player)
+    private float GetEntityY(object entity)
     {
-        var prop = player.GetType().GetProperty("Y");
-        if (prop != null)
-        {
-            var value = prop.GetValue(player);
-            return value is float floatValue ? floatValue : Convert.ToSingle(value);
-        }
-        return 0f;
+        var prop = entity.GetType().GetProperty("Y");
+        if (prop == null) return 0f;
+
+        var value = prop.GetValue(entity);
+        return value is float f ? f : Convert.ToSingle(value);
     }
 
-    private int GetPlayerId(object player)
+    private int GetEntityId(object entity)
     {
-        var prop = player.GetType().GetProperty("Id");
-        if (prop != null)
-        {
-            var value = prop.GetValue(player);
-            return value is int intValue ? intValue : Convert.ToInt32(value);
-        }
-        return -1;
+        var prop = entity.GetType().GetProperty("Id");
+        if (prop == null) return -1;
+
+        var value = prop.GetValue(entity);
+        return value is int i ? i : Convert.ToInt32(value);
     }
 
-    private string GetPlayerRole(object player)
+    private string GetEntityType(object entity)
     {
-        var prop = player.GetType().GetProperty("RoleType");
-        return prop != null ? (prop.GetValue(player)?.ToString() ?? "unknown") : "unknown";
+        var prop = entity.GetType().GetProperty("RoleType");
+        return prop != null ? (prop.GetValue(entity)?.ToString() ?? "unknown") : "unknown";
     }
 }

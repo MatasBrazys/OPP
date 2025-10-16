@@ -15,11 +15,18 @@ namespace GameClient
         private NetworkStream? stream;
         private Thread? receiveThread;
         private int myId;
-        private readonly Dictionary<int, Player> players = new();
-        private int dx, dy;
+
+        private readonly Dictionary<int, PlayerRenderer> playerRenderers = new();
+        private readonly HashSet<Keys> pressedKeys = new();
+        private float moveX, moveY;
+        private const float MoveSpeed = 1f;
+
         private readonly System.Windows.Forms.Timer gameTimer;
         private Map map = new();
         private readonly Dictionary<(int x, int y), TileRenderer> tileRenderers = new();
+        private const int TileSize = 128;
+
+        // Tile sprites
         private readonly Image grassSprite = Image.FromFile("../assets/grass.png");
         private readonly Image treeSprite = Image.FromFile("../assets/tree.png");
         private readonly Image houseSprite = Image.FromFile("../assets/house.png");
@@ -28,7 +35,6 @@ namespace GameClient
         private readonly Image waterSprite = Image.FromFile("../assets/water.png");
         private readonly Image sandSprite = Image.FromFile("../assets/sand.png");
         private readonly Image cherrySprite = Image.FromFile("../assets/cherry.jpg");
-        private const int TileSize = 128;
 
         public GameClientForm()
         {
@@ -37,14 +43,14 @@ namespace GameClient
             Paint += GameClientForm_Paint;
             Load += GameClientForm_Load;
 
-            gameTimer = new System.Windows.Forms.Timer { Interval = 30 };
+            gameTimer = new System.Windows.Forms.Timer { Interval = 32 };
             gameTimer.Tick += GameLoop;
             gameTimer.Start();
         }
 
-         private void GameClientForm_Load(object? sender, EventArgs e)
+        private void GameClientForm_Load(object? sender, EventArgs e)
         {
-            // Register all tile sprites
+            // Register tile sprites
             SpriteRegistry.Register("Grass", grassSprite);
             SpriteRegistry.Register("Tree", treeSprite);
             SpriteRegistry.Register("House", houseSprite);
@@ -53,6 +59,11 @@ namespace GameClient
             SpriteRegistry.Register("Water", waterSprite);
             SpriteRegistry.Register("Sand", sandSprite);
             SpriteRegistry.Register("Cherry", cherrySprite);
+
+            // Register player sprites
+            SpriteRegistry.Register("Mage", Image.FromFile("../assets/mage.png"));
+            SpriteRegistry.Register("Hunter", Image.FromFile("../assets/hunter.png"));
+            SpriteRegistry.Register("Defender", Image.FromFile("../assets/defender.png"));
 
             try
             {
@@ -84,47 +95,24 @@ namespace GameClient
                     {
                         case "welcome":
                             var welcome = JsonSerializer.Deserialize<WelcomeMessage>(line);
-                            myId = welcome.Id;
+                            if (welcome != null) myId = welcome.Id;
                             break;
 
                         case "tile_update":
                             var tileUpdate = JsonSerializer.Deserialize<TileUpdateMessage>(line);
-                            if (tileUpdate != null)
-                            {
-                                UpdateTile(tileUpdate.X, tileUpdate.Y, tileUpdate.TileType);
-                            }
-                            break;
-
-                        case "copy_made":
-                            var copyMessage = JsonSerializer.Deserialize<CopyMadeMessage>(line);
-                            if (copyMessage != null)
-                            {
-                                Console.WriteLine($"=== PLAYER COPY CREATED ===");
-                                Console.WriteLine($"Original Player: ID {copyMessage.OriginalPlayerId}, Role: {copyMessage.OriginalRole}");
-                                Console.WriteLine($"New Clone: ID {copyMessage.NewPlayerId}, Role: {copyMessage.NewRole}");
-                                Console.WriteLine($"Copy Type: {copyMessage.CopyType} Copy");
-                                Console.WriteLine($"=== COPY COMPLETE ===");
-                            }
+                            if (tileUpdate != null) UpdateTile(tileUpdate.X, tileUpdate.Y, tileUpdate.TileType);
                             break;
 
                         case "map_state":
                             var mapState = JsonSerializer.Deserialize<MapStateMessage>(line);
                             if (mapState != null)
                             {
-                                // Clear existing map and tile renderers
                                 map = new Map();
                                 tileRenderers.Clear();
-
-                                // Initialize map with correct dimensions
                                 map.LoadFromDimensions(mapState.Width, mapState.Height);
-
-                                // Update all tiles from server state
                                 foreach (var tileDto in mapState.Tiles)
-                                {
                                     UpdateTile(tileDto.X, tileDto.Y, tileDto.TileType);
-                                }
                                 Invalidate();
-                                Console.WriteLine($"Received updated map state with {mapState.Tiles.Count} tiles");
                             }
                             break;
 
@@ -132,18 +120,28 @@ namespace GameClient
                             var state = JsonSerializer.Deserialize<StateMessage>(line);
                             if (state == null) break;
 
-                            lock (players)
+                            lock (playerRenderers)
                             {
-                                players.Clear();
                                 foreach (var ps in state.Players)
                                 {
-                                    players[ps.Id] = new Player(
-                                        ps.Id,
-                                        ps.X,
-                                        ps.Y,
-                                        ps.Id == myId ? Color.Blue : Color.Red);
+                                    if (!playerRenderers.TryGetValue(ps.Id, out var existing))
+                                    {
+                                        var sprite = SpriteRegistry.GetSprite(ps.RoleType); // use role to get sprite
+                                        var isLocal = ps.Id == myId; // true if this is the local player
+                                        var renderer = new PlayerRenderer(ps.Id, ps.RoleType, ps.X, ps.Y, sprite, isLocal);
+                                        playerRenderers[ps.Id] = renderer;
+                                    }
+                                    else
+                                    {
+                                        existing.SetTarget(ps.X, ps.Y);
+                                    }
+                                    // Remove disconnected players
+                                    var serverIds = state.Players.Select(x => x.Id).ToHashSet();
+                                    var toRemove = playerRenderers.Keys.Where(k => !serverIds.Contains(k)).ToList();
+                                    foreach (var rem in toRemove) playerRenderers.Remove(rem);
                                 }
                             }
+
                             Invalidate();
                             break;
 
@@ -154,7 +152,7 @@ namespace GameClient
 
                         case "collision":
                             var collision = JsonSerializer.Deserialize<CollisionMessage>(line);
-                            Console.WriteLine($"Collision occured at : {collision.X} {collision.Y}");
+                            Console.WriteLine($"Collision at: {collision.X}, {collision.Y}");
                             break;
 
                         case "goodbye":
@@ -174,7 +172,14 @@ namespace GameClient
         {
             if (stream == null || myId == 0) return;
 
-            var msg = new InputMessage { Dx = dx, Dy = dy };
+            UpdateMovement();
+
+            var msg = new InputMessage
+            {
+                Dx = (int)Math.Round(moveX),
+                Dy = (int)Math.Round(moveY)
+            };
+
             var json = JsonSerializer.Serialize(msg) + "\n";
             var data = Encoding.UTF8.GetBytes(json);
 
@@ -182,6 +187,27 @@ namespace GameClient
 
             Invalidate();
         }
+
+        private void UpdateMovement()
+        {
+            float dx = 0f, dy = 0f;
+
+            if (pressedKeys.Contains(Keys.W)) dy -= 1f;
+            if (pressedKeys.Contains(Keys.S)) dy += 1f;
+            if (pressedKeys.Contains(Keys.A)) dx -= 1f;
+            if (pressedKeys.Contains(Keys.D)) dx += 1f;
+
+            float magnitude = (float)Math.Sqrt(dx * dx + dy * dy);
+            if (magnitude > 0)
+            {
+                dx /= magnitude;
+                dy /= magnitude;
+            }
+
+            moveX = dx * MoveSpeed;
+            moveY = dy * MoveSpeed;
+        }
+
         private void UpdateTile(int x, int y, string tileType)
         {
             TileData newTile = tileType.ToLower() switch
@@ -197,31 +223,20 @@ namespace GameClient
                 _ => new GrassTile(x, y)
             };
 
-            // Update the map
             map.SetTile(x, y, newTile);
-
-            var renderableTile = new TileDataAdapter(newTile);
-            tileRenderers[(x, y)] = new TileRenderer(renderableTile, TileSize);
-
-            // Redraw
+            tileRenderers[(x, y)] = new TileRenderer(new TileDataAdapter(newTile), TileSize);
             Invalidate();
         }
 
         private void GameClientForm_Paint(object? sender, PaintEventArgs e)
         {
             foreach (var renderer in tileRenderers.Values)
-            {
                 renderer.Draw(e.Graphics);
-            }
 
-            lock (players)
+            lock (playerRenderers)
             {
-                foreach (var p in players.Values)
-                {
-                    p.Draw(e.Graphics);
-                    e.Graphics.DrawString($"ID:{p.Id} ({p.X / TileSize},{p.Y / TileSize})",
-                        SystemFonts.DefaultFont, Brushes.Black, p.X, p.Y - 25);
-                }
+                foreach (var renderer in playerRenderers.Values)
+                    renderer.Draw(e.Graphics);
             }
 
             using var pen = new Pen(Color.Black, 1);
@@ -231,29 +246,9 @@ namespace GameClient
             for (int y = 0; y <= map.Height; y++)
                 e.Graphics.DrawLine(pen, 0, y * TileSize, map.Width * TileSize, y * TileSize);
         }
-        
 
-        private void GameClientForm_KeyDown(object? sender, KeyEventArgs e)
-        {
-            switch (e.KeyCode)
-            {
-                case Keys.W: dy = -1; break;
-                case Keys.S: dy = 1; break;
-                case Keys.A: dx = -1; break;
-                case Keys.D: dx = 1; break;
-            }
-        }
+        private void GameClientForm_KeyDown(object? sender, KeyEventArgs e) => pressedKeys.Add(e.KeyCode);
 
-        private void GameClientForm_KeyUp(object? sender, KeyEventArgs e)
-        {
-            switch (e.KeyCode)
-            {
-                case Keys.W:
-                case Keys.S: dy = 0; break;
-                case Keys.A:
-                case Keys.D: dx = 0; break;
-            }
-        }
-
+        private void GameClientForm_KeyUp(object? sender, KeyEventArgs e) => pressedKeys.Remove(e.KeyCode);
     }
 }
