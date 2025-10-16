@@ -12,7 +12,7 @@ namespace GameClient.Rendering
         private DateTime _lastUpdateUtc;
         private readonly Image _sprite;
         private readonly bool _isLocalPlayer;
-        private const double InterpolationMs = 150.0;
+        private const double InterpolationMs = 100.0;
 
         public PlayerRenderer(int id, string role, int startX, int startY, Image sprite, bool isLocalPlayer)
         {
