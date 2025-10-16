@@ -9,6 +9,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
+using System.Threading;
 using static GameServer.Events.GameEvent;
 
 namespace GameServer
@@ -20,6 +21,9 @@ namespace GameServer
         static Dictionary<int, string> clientRoles = new();
         static int nextId = 1;
         static object locker = new object();
+        private static int nextPlayerId = 1000;
+        private readonly object idLock = new object();
+        private static HashSet<(int x, int y)> eatenCherries = new HashSet<(int x, int y)>();
 
         static readonly string[] AllRoles = new[] { "hunter", "mage", "defender" };
 
@@ -136,6 +140,8 @@ namespace GameServer
         {
             Game.Instance.World.Map.SetTile(tileX, tileY, new GrassTile(tileX, tileY));
 
+            eatenCherries.Add((tileX, tileY));
+
             var tileUpdate = new TileUpdateMessage
             {
                 X = tileX,
@@ -143,13 +149,13 @@ namespace GameServer
                 TileType = "grass"
             };
             BroadcastToAll(tileUpdate);
+            Console.WriteLine($"Replaced tile ({tileX}, {tileY}) with grass - broadcasted to all clients");
         }
+
         private void CreatePlayerClone(PlayerRole originalPlayer)
         {
             PlayerRole clone = originalPlayer.DeepCopy();
-
             clone.Id = GetNextPlayerId();
-
             clone.X = originalPlayer.X + 64;
             clone.Y = originalPlayer.Y + 64;
 
@@ -163,6 +169,7 @@ namespace GameServer
                 NewRole = clone.RoleType,
                 CopyType = "deep"
             };
+
             if (clients.TryGetValue(originalPlayer.Id, out TcpClient? originalClient))
             {
                 SendMessage(originalClient, copyMessage);
@@ -172,14 +179,16 @@ namespace GameServer
             {
                 Console.WriteLine($"Could not find client for player {originalPlayer.Id}");
             }
-
+            BroadcastState();
             originalPlayer.TestDeepCopy();
             Console.WriteLine($"Created clone {clone.Id} from player {originalPlayer.Id} with {clone.GetType().Name} role");
         }
         private int GetNextPlayerId()
         {
-            var players = Game.Instance.World.GetPlayers();
-            return players.Any() ? players.Max(p => p.Id) + 1 : 1;
+            lock (idLock)
+            {
+                return nextPlayerId++;
+            }
         }
         public void OnGameEvent(GameEvent gameEvent)
         {
@@ -226,6 +235,45 @@ namespace GameServer
                     .ToList()
             };
             SendMessage(client, snapshot);
+            SendCurrentMapStateTo(client);
+        }
+        private void SendCurrentMapStateTo(TcpClient client)
+        {
+            var mapState = new MapStateMessage
+            {
+                Width = Game.Instance.World.Map.Width,
+                Height = Game.Instance.World.Map.Height,
+                Tiles = new List<MapTileDto>()
+            };
+
+            for (int x = 0; x < Game.Instance.World.Map.Width; x++)
+            {
+                for (int y = 0; y < Game.Instance.World.Map.Height; y++)
+                {
+                    var tile = Game.Instance.World.Map.GetTile(x, y);
+
+                    if (eatenCherries.Contains((x, y)))
+                    {
+                        mapState.Tiles.Add(new MapTileDto
+                        {
+                            X = x,
+                            Y = y,
+                            TileType = "grass"
+                        });
+                    }
+                    else
+                    {
+                        mapState.Tiles.Add(new MapTileDto
+                        {
+                            X = x,
+                            Y = y,
+                            TileType = tile.TileType
+                        });
+                    }
+                }
+            }
+            SendMessage(client, mapState);
+            Console.WriteLine($"Sent current map state to new client (with {eatenCherries.Count} eaten cherries marked as grass)");
         }
 
         private void HandleClient(int id, TcpClient client)
@@ -291,28 +339,32 @@ namespace GameServer
             StateMessage state;
             lock (locker)
             {
-                Console.WriteLine($"Server.BroadcastState reading from world: {Game.Instance.World.GetHashCode()}");
+                var worldPlayers = Game.Instance.World.GetPlayers();
+                Console.WriteLine($"BroadcastState: World has {worldPlayers.Count} players");
+
                 state = new StateMessage
                 {
                     ServerTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
-                    Players = Game.Instance.World.GetPlayers()
+                    Players = worldPlayers
                         .Select(p => new PlayerDto
                         {
                             Id = p.Id,
                             X = p.X,
                             Y = p.Y,
                             Health = p.Health,
-                            RoleType = p.RoleType, // or a RoleType property
+                            RoleType = p.RoleType,
                             RoleColor = p.RoleColor.Name
                         })
                         .ToList()
                 };
             }
-            Console.WriteLine($"Broadcasting state with {state.Players.Count} players");
-            foreach (var player in state.Players)
+
+            Console.WriteLine($"Broadcasting state with {state.Players.Count} players to {clients.Count} clients");
+            foreach (var clientId in clients.Keys)
             {
-                Console.WriteLine($"Player {player.Id} at ({player.X}, {player.Y})");
+                Console.WriteLine($"Sending to client {clientId}");
             }
+
             foreach (var client in clients.Values)
             {
                 SendMessage(client, state);

@@ -65,6 +65,19 @@ namespace GameShared.Types.Map
                 tiles[x, y] = newTile;
             }
         }
+        public void LoadFromDimensions(int width, int height)
+        {
+            Width = width;
+            Height = height;
+            tiles = new TileData[width, height];
 
+            for (int x = 0; x < width; x++)
+            {
+                for (int y = 0; y < height; y++)
+                {
+                    tiles[x, y] = new GrassTile(x, y);
+                }
+            }
+        }
     }
 }

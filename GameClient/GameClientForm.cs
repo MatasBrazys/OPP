@@ -44,8 +44,6 @@ namespace GameClient
 
          private void GameClientForm_Load(object? sender, EventArgs e)
         {
-            map.LoadFromText("../assets/map.txt");
-
             // Register all tile sprites
             SpriteRegistry.Register("Grass", grassSprite);
             SpriteRegistry.Register("Tree", treeSprite);
@@ -55,15 +53,6 @@ namespace GameClient
             SpriteRegistry.Register("Water", waterSprite);
             SpriteRegistry.Register("Sand", sandSprite);
             SpriteRegistry.Register("Cherry", cherrySprite);
-
-            tileRenderers.Clear();
-            for (int x = 0; x < map.Width; x++)
-            for (int y = 0; y < map.Height; y++)
-            {
-                var tile = map.GetTile(x, y);
-                var renderableTile = new TileDataAdapter(tile);
-                tileRenderers[(x, y)] = new TileRenderer(renderableTile, TileSize);
-            }
 
             try
             {
@@ -118,6 +107,26 @@ namespace GameClient
                             }
                             break;
 
+                        case "map_state":
+                            var mapState = JsonSerializer.Deserialize<MapStateMessage>(line);
+                            if (mapState != null)
+                            {
+                                // Clear existing map and tile renderers
+                                map = new Map();
+                                tileRenderers.Clear();
+
+                                // Initialize map with correct dimensions
+                                map.LoadFromDimensions(mapState.Width, mapState.Height);
+
+                                // Update all tiles from server state
+                                foreach (var tileDto in mapState.Tiles)
+                                {
+                                    UpdateTile(tileDto.X, tileDto.Y, tileDto.TileType);
+                                }
+                                Invalidate();
+                                Console.WriteLine($"Received updated map state with {mapState.Tiles.Count} tiles");
+                            }
+                            break;
 
                         case "state":
                             var state = JsonSerializer.Deserialize<StateMessage>(line);
@@ -196,17 +205,6 @@ namespace GameClient
 
             // Redraw
             Invalidate();
-        }
-        private void UpdateTileRenderer(int x, int y, TileData tile)
-        {
-            tileRenderers.Clear();
-            for (int mapX = 0; mapX < map.Width; mapX++)
-                for (int mapY = 0; mapY < map.Height; mapY++)
-                {
-                    var currentTile = map.GetTile(mapX, mapY);
-                    var renderableTile = new TileDataAdapter(currentTile);
-                    tileRenderers[(x, y)] = new TileRenderer(renderableTile, TileSize);
-                }
         }
 
         private void GameClientForm_Paint(object? sender, PaintEventArgs e)
