@@ -84,7 +84,26 @@ namespace GameShared.Types.Players
             }
             target._previousTile = null;
         }
-            
 
+        public void TestDeepCopy()
+        {
+            Console.WriteLine("======== DEEP COPY TEST =======");
+
+            var original = this;
+            Console.WriteLine($"Original: ID={original.Id}, Strategy={original._currentStrategy.GetType().Name}");
+
+            var clone = this.DeepCopy();
+            Console.WriteLine($"Clone: ID={clone.Id}, Strategy={clone._currentStrategy.GetType().Name}");
+
+            bool strategiesAreDifferent = !ReferenceEquals(original._currentStrategy, clone._currentStrategy);
+            Console.WriteLine($"Strategies differ: {strategiesAreDifferent}");
+
+            Console.WriteLine("Changing original strategy...");
+            original._currentStrategy = new AppleBoostMovement();
+
+            Console.WriteLine($"Original strategy after change: {original._currentStrategy.GetType().Name}");
+            Console.WriteLine($"Clone strategy after change: {clone._currentStrategy.GetType().Name}");
+        }
     }
 }
+

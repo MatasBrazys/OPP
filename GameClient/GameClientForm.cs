@@ -106,6 +106,19 @@ namespace GameClient
                             }
                             break;
 
+                        case "copy_made":
+                            var copyMessage = JsonSerializer.Deserialize<CopyMadeMessage>(line);
+                            if (copyMessage != null)
+                            {
+                                Console.WriteLine($"=== PLAYER COPY CREATED ===");
+                                Console.WriteLine($"Original Player: ID {copyMessage.OriginalPlayerId}, Role: {copyMessage.OriginalRole}");
+                                Console.WriteLine($"New Clone: ID {copyMessage.NewPlayerId}, Role: {copyMessage.NewRole}");
+                                Console.WriteLine($"Copy Type: {copyMessage.CopyType} Copy");
+                                Console.WriteLine($"=== COPY COMPLETE ===");
+                            }
+                            break;
+
+
                         case "state":
                             var state = JsonSerializer.Deserialize<StateMessage>(line);
                             if (state == null) break;

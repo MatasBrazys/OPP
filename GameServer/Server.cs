@@ -155,6 +155,25 @@ namespace GameServer
 
             Game.Instance.World.AddEntity(clone);
 
+            var copyMessage = new CopyMadeMessage
+            {
+                OriginalPlayerId = originalPlayer.Id,
+                NewPlayerId = clone.Id,
+                OriginalRole = originalPlayer.RoleType,
+                NewRole = clone.RoleType,
+                CopyType = "deep"
+            };
+            if (clients.TryGetValue(originalPlayer.Id, out TcpClient? originalClient))
+            {
+                SendMessage(originalClient, copyMessage);
+                Console.WriteLine($"Sent copy_made message to client {originalPlayer.Id}");
+            }
+            else
+            {
+                Console.WriteLine($"Could not find client for player {originalPlayer.Id}");
+            }
+
+            originalPlayer.TestDeepCopy();
             Console.WriteLine($"Created clone {clone.Id} from player {originalPlayer.Id} with {clone.GetType().Name} role");
         }
         private int GetNextPlayerId()
