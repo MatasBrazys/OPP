@@ -6,6 +6,10 @@ namespace GameClient.Rendering
         private readonly IRenderable _tile;
         private readonly int _tileSize;
 
+        public int X => _tile.X;
+        public int Y => _tile.Y;
+        public IRenderable Tile => _tile;
+
         public TileRenderer(IRenderable tile, int tileSize)
         {
             _tile = tile;

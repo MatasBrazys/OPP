@@ -8,7 +8,7 @@ namespace GameShared.Messages
 {
     public abstract class GameMessage
     {
-        public string Type { get; set; } = "";
+        public virtual string Type { get; set; } = "";
         public int V { get; set; } = 1;
     }
 

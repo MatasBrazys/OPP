@@ -1,12 +1,14 @@
-﻿using System.Data;
+﻿using GameServer.Commands;
+using GameServer.Events;
+using GameShared.Messages;
+using GameShared.Types.DTOs;
+using GameShared.Types.Map;
+using GameShared.Types.Players;
+using System.Data;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
-using GameShared.Messages;
-using GameShared.Types.DTOs;
-using GameServer.Events;
-using GameServer.Commands;
 using static GameServer.Events.GameEvent;
 
 namespace GameServer
@@ -108,8 +110,18 @@ namespace GameServer
 
                 if (player.CanMove(targetTile))
                 {
+                    bool enteredNewTile = (currentTileX != targetTileX || currentTileY != targetTileY);
+
                     player.X = newX;
                     player.Y = newY;
+
+                    if (enteredNewTile && targetTile is CherryTile cherryTile && cherryTile.CanBeEaten())
+                    {
+                        cherryTile.Eat();
+                        CreatePlayerClone(player);
+
+                        ReplaceTileWithGrass(targetTileX, targetTileY);
+                    }
 
                     player.OnMoveTile(targetTile);
                 }
@@ -119,6 +131,36 @@ namespace GameServer
             }
 
             BroadcastState();
+        }
+        private void ReplaceTileWithGrass(int tileX, int tileY)
+        {
+            Game.Instance.World.Map.SetTile(tileX, tileY, new GrassTile(tileX, tileY));
+
+            var tileUpdate = new TileUpdateMessage
+            {
+                X = tileX,
+                Y = tileY,
+                TileType = "grass"
+            };
+            BroadcastToAll(tileUpdate);
+        }
+        private void CreatePlayerClone(PlayerRole originalPlayer)
+        {
+            PlayerRole clone = originalPlayer.DeepCopy();
+
+            clone.Id = GetNextPlayerId();
+
+            clone.X = originalPlayer.X + 64;
+            clone.Y = originalPlayer.Y + 64;
+
+            Game.Instance.World.AddEntity(clone);
+
+            Console.WriteLine($"Created clone {clone.Id} from player {originalPlayer.Id} with {clone.GetType().Name} role");
+        }
+        private int GetNextPlayerId()
+        {
+            var players = Game.Instance.World.GetPlayers();
+            return players.Any() ? players.Max(p => p.Id) + 1 : 1;
         }
         public void OnGameEvent(GameEvent gameEvent)
         {

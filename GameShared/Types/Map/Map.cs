@@ -47,6 +47,7 @@ namespace GameShared.Types.Map
                         4 => new FishTile(x, y),
                         5 => new WaterTile(x, y),
                         6 => new SandTile(x, y),
+                        7 => new CherryTile(x, y),
                         _ => new GrassTile(x, y)
                     };
                 }
@@ -57,7 +58,13 @@ namespace GameShared.Types.Map
             return tiles[x, y];
         
         }
+        public void SetTile(int x, int y, TileData newTile)
+        {
+            if (x >= 0 && x < Width && y >= 0 && y < Height)
+            {
+                tiles[x, y] = newTile;
+            }
+        }
 
-        // Add map logic here as needed
     }
 }

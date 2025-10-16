@@ -11,7 +11,12 @@ namespace GameShared.Types.Players
             RoleType = "Hunter";
             RoleColor = Color.Brown;
         }
-
+        public override PlayerRole DeepCopy()
+        {
+            var clone = new Hunter();
+            CopyBasePropertiesTo(clone);
+            return clone;
+        }
         public override void Attack()
         {
             // Bow attack implementation

@@ -11,7 +11,12 @@ namespace GameShared.Types.Players
             RoleType = "Defender";
             RoleColor = Color.Green;
         }
-
+        public override PlayerRole DeepCopy()
+        {
+            var clone = new Defender();
+            CopyBasePropertiesTo(clone);
+            return clone;
+        }
         public override void Attack()
         {
             // Melee attack implementation

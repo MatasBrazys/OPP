@@ -4,11 +4,22 @@ using GameShared.Types.Map;
 
 namespace GameShared.Types.Players
 {
-    public abstract class PlayerRole : PlayerState
+    public abstract class PlayerRole : PlayerState, ICloneable
     {
         public int Health { get; protected set; } = 5;
         public string RoleType { get; protected set; }
         public Color RoleColor { get; protected set; }
+
+        public abstract PlayerRole DeepCopy();
+        public object Clone()
+        {
+            return DeepCopy();
+        }
+        public virtual PlayerRole ShallowCopy()
+        {
+            var copy = (PlayerRole)this.MemberwiseClone();
+            return copy;
+        }
 
         private IMovementStrategy _currentStrategy;
         private TileData? _previousTile = null;
@@ -52,5 +63,28 @@ namespace GameShared.Types.Players
 
         public abstract void Attack();
         public abstract void SpecialAbility();
+
+        protected void CopyBasePropertiesTo(PlayerRole target)
+        {
+            target.Id = 0;
+            target.X = this.X;
+            target.Y = this.Y;
+            target.Health = this.Health;
+            target.RoleType = this.RoleType;
+            target.RoleColor = this.RoleColor;
+
+            // Deep copy the strategy
+            if (this._currentStrategy is ICloneable cloneableStrategy)
+            {
+                target._currentStrategy = (IMovementStrategy)cloneableStrategy.Clone();
+            }
+            else
+            {
+                target._currentStrategy = this._currentStrategy;
+            }
+            target._previousTile = null;
+        }
+            
+
     }
 }

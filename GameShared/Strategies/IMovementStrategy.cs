@@ -3,7 +3,7 @@ using GameShared.Types.Players;
 
 namespace GameShared.Strategies
 {
-    public interface IMovementStrategy
+    public interface IMovementStrategy : ICloneable
     {
         bool CanMove(PlayerRole player, TileData tile);
 

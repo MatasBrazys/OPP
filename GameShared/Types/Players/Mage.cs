@@ -11,7 +11,12 @@ namespace GameShared.Types.Players
             RoleType = "Mage";
             RoleColor = Color.Blue;
         }
-
+        public override PlayerRole DeepCopy()
+        {
+            var clone = new Mage();
+            CopyBasePropertiesTo(clone);
+            return clone;
+        }
         public override void Attack()
         {
             // Magic attack implementation

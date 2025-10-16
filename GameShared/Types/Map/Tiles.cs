@@ -48,6 +48,7 @@ public class AppleTile : TileData
     public AppleTile(int x, int y) : base(x, y) { }
 }
 
+
 public class FishTile : TileData
 {
     public int tileId = 4;
@@ -73,4 +74,21 @@ public class SandTile : TileData
     public override bool Passable => true;
 
     public SandTile(int x, int y) : base(x, y) { }
+}
+
+public class CherryTile : TileData
+{
+    public int tileId = 7;
+    public override string TileType => "Cherry";
+    public override bool Passable =>    true;
+    public CherryTile(int x, int y): base(x, y) { }
+    public bool IsEaten { get; private set; }
+    public void Eat()
+    {
+        IsEaten = true;
+    }
+    public bool CanBeEaten()
+    {
+        return !IsEaten;
+    }
 }

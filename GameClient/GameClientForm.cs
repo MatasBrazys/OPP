@@ -19,7 +19,7 @@ namespace GameClient
         private int dx, dy;
         private readonly System.Windows.Forms.Timer gameTimer;
         private Map map = new();
-        private readonly List<TileRenderer> tileRenderers = new();
+        private readonly Dictionary<(int x, int y), TileRenderer> tileRenderers = new();
         private readonly Image grassSprite = Image.FromFile("../assets/grass.png");
         private readonly Image treeSprite = Image.FromFile("../assets/tree.png");
         private readonly Image houseSprite = Image.FromFile("../assets/house.png");
@@ -27,6 +27,7 @@ namespace GameClient
         private readonly Image fishSprite = Image.FromFile("../assets/fish.png");
         private readonly Image waterSprite = Image.FromFile("../assets/water.png");
         private readonly Image sandSprite = Image.FromFile("../assets/sand.png");
+        private readonly Image cherrySprite = Image.FromFile("../assets/cherry.jpg");
         private const int TileSize = 128;
 
         public GameClientForm()
@@ -53,18 +54,17 @@ namespace GameClient
             SpriteRegistry.Register("Fish", fishSprite);
             SpriteRegistry.Register("Water", waterSprite);
             SpriteRegistry.Register("Sand", sandSprite);
+            SpriteRegistry.Register("Cherry", cherrySprite);
 
-            // Create TileRenderers from map
             tileRenderers.Clear();
             for (int x = 0; x < map.Width; x++)
             for (int y = 0; y < map.Height; y++)
             {
                 var tile = map.GetTile(x, y);
-                var renderableTile = new TileDataAdapter(tile); // wrap as IRenderable
-                tileRenderers.Add(new TileRenderer(renderableTile, TileSize));
+                var renderableTile = new TileDataAdapter(tile);
+                tileRenderers[(x, y)] = new TileRenderer(renderableTile, TileSize);
             }
 
-            // Connect to server
             try
             {
                 client = new TcpClient("127.0.0.1", 5000);
@@ -96,6 +96,14 @@ namespace GameClient
                         case "welcome":
                             var welcome = JsonSerializer.Deserialize<WelcomeMessage>(line);
                             myId = welcome.Id;
+                            break;
+
+                        case "tile_update":
+                            var tileUpdate = JsonSerializer.Deserialize<TileUpdateMessage>(line);
+                            if (tileUpdate != null)
+                            {
+                                UpdateTile(tileUpdate.X, tileUpdate.Y, tileUpdate.TileType);
+                            }
                             break;
 
                         case "state":
@@ -152,11 +160,48 @@ namespace GameClient
 
             Invalidate();
         }
+        private void UpdateTile(int x, int y, string tileType)
+        {
+            TileData newTile = tileType.ToLower() switch
+            {
+                "grass" => new GrassTile(x, y),
+                "cherry" => new CherryTile(x, y),
+                "tree" => new TreeTile(x, y),
+                "house" => new HouseTile(x, y),
+                "apple" => new AppleTile(x, y),
+                "fish" => new FishTile(x, y),
+                "water" => new WaterTile(x, y),
+                "sand" => new SandTile(x, y),
+                _ => new GrassTile(x, y)
+            };
+
+            // Update the map
+            map.SetTile(x, y, newTile);
+
+            var renderableTile = new TileDataAdapter(newTile);
+            tileRenderers[(x, y)] = new TileRenderer(renderableTile, TileSize);
+
+            // Redraw
+            Invalidate();
+        }
+        private void UpdateTileRenderer(int x, int y, TileData tile)
+        {
+            tileRenderers.Clear();
+            for (int mapX = 0; mapX < map.Width; mapX++)
+                for (int mapY = 0; mapY < map.Height; mapY++)
+                {
+                    var currentTile = map.GetTile(mapX, mapY);
+                    var renderableTile = new TileDataAdapter(currentTile);
+                    tileRenderers[(x, y)] = new TileRenderer(renderableTile, TileSize);
+                }
+        }
 
         private void GameClientForm_Paint(object? sender, PaintEventArgs e)
         {
-            foreach (var r in tileRenderers)
-                r.Draw(e.Graphics);
+            foreach (var renderer in tileRenderers.Values)
+            {
+                renderer.Draw(e.Graphics);
+            }
 
             lock (players)
             {
@@ -175,6 +220,7 @@ namespace GameClient
             for (int y = 0; y <= map.Height; y++)
                 e.Graphics.DrawLine(pen, 0, y * TileSize, map.Width * TileSize, y * TileSize);
         }
+        
 
         private void GameClientForm_KeyDown(object? sender, KeyEventArgs e)
         {
@@ -197,5 +243,6 @@ namespace GameClient
                 case Keys.D: dx = 0; break;
             }
         }
+
     }
 }
