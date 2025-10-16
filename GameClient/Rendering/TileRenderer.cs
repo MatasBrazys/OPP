@@ -1,24 +1,21 @@
 // File: GameClient/Rendering/TileRenderer.cs
-using GameShared.Types.Map;
-
 namespace GameClient.Rendering
 {
     public class TileRenderer
     {
+        private readonly IRenderable _tile;
         private readonly int _tileSize;
-        public TileData Tile { get; }
-        public Image Sprite { get; }
 
-        public TileRenderer(TileData tile, Image sprite, int tileSize)
+        public TileRenderer(IRenderable tile, int tileSize)
         {
-            Tile = tile;
-            Sprite = sprite;
+            _tile = tile;
             _tileSize = tileSize;
         }
 
         public void Draw(Graphics g)
         {
-            g.DrawImage(Sprite, Tile.X * _tileSize, Tile.Y * _tileSize, _tileSize, _tileSize);
+            Image sprite = SpriteRegistry.GetSprite(_tile.TextureName);
+            g.DrawImage(sprite, _tile.X * _tileSize, _tile.Y * _tileSize, _tileSize, _tileSize);
         }
     }
 }

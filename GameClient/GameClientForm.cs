@@ -4,8 +4,8 @@ using System.Text;
 using System.Text.Json;
 using GameShared.Messages;
 using GameShared.Types.Map;
-using GameShared.Types;
 using GameClient.Rendering;
+using GameClient.Adapters;
 
 namespace GameClient
 {
@@ -20,7 +20,6 @@ namespace GameClient
         private readonly System.Windows.Forms.Timer gameTimer;
         private Map map = new();
         private readonly List<TileRenderer> tileRenderers = new();
-
         private readonly Image grassSprite = Image.FromFile("../assets/grass.png");
         private readonly Image treeSprite = Image.FromFile("../assets/tree.png");
         private readonly Image houseSprite = Image.FromFile("../assets/house.png");
@@ -42,27 +41,27 @@ namespace GameClient
             gameTimer.Start();
         }
 
-        private void GameClientForm_Load(object? sender, EventArgs e)
+         private void GameClientForm_Load(object? sender, EventArgs e)
         {
             map.LoadFromText("../assets/map.txt");
 
+            // Register all tile sprites
+            SpriteRegistry.Register("Grass", grassSprite);
+            SpriteRegistry.Register("Tree", treeSprite);
+            SpriteRegistry.Register("House", houseSprite);
+            SpriteRegistry.Register("Apple", appleSprite);
+            SpriteRegistry.Register("Fish", fishSprite);
+            SpriteRegistry.Register("Water", waterSprite);
+            SpriteRegistry.Register("Sand", sandSprite);
+
+            // Create TileRenderers from map
             tileRenderers.Clear();
             for (int x = 0; x < map.Width; x++)
             for (int y = 0; y < map.Height; y++)
             {
                 var tile = map.GetTile(x, y);
-                Image sprite = tile switch
-                {
-                    GrassTile => grassSprite,
-                    TreeTile => treeSprite,
-                    HouseTile => houseSprite,
-                    AppleTile => appleSprite,
-                    FishTile => fishSprite,
-                    WaterTile => waterSprite,
-                    SandTile => sandSprite,
-                    _ => grassSprite
-                };
-                tileRenderers.Add(new TileRenderer(tile, sprite, TileSize));
+                var renderableTile = new TileDataAdapter(tile); // wrap as IRenderable
+                tileRenderers.Add(new TileRenderer(renderableTile, TileSize));
             }
 
             // Connect to server

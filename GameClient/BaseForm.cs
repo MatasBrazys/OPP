@@ -7,7 +7,7 @@ namespace GameClient
         public BaseForm()
         {
             Text = "Game Client";
-            ClientSize = new Size(800, 450);
+            ClientSize = new Size(1024,1024 );
             DoubleBuffered = true;
         }
     }
