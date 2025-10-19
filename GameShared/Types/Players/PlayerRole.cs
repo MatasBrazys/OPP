@@ -6,9 +6,19 @@ namespace GameShared.Types.Players
 {
     public abstract class PlayerRole : PlayerState, ICloneable
     {
-        public int Health { get; protected set; } = 5;
-        public string RoleType { get; protected set; }
-        public Color RoleColor { get; protected set; }
+        public int Health { get; internal set; }
+        public string RoleType { get; internal set; }
+        public Color RoleColor { get; internal set; }
+
+        public string AttackType { get; internal set; }
+
+        private IMovementStrategy _currentStrategy;
+        private TileData? _previousTile = null;
+
+        public void SetMovementStrategy(IMovementStrategy strategy)
+        {
+            _currentStrategy = strategy ?? new NormalMovement();
+        }
 
         public abstract PlayerRole DeepCopy();
         public object Clone()
@@ -21,8 +31,7 @@ namespace GameShared.Types.Players
             return copy;
         }
 
-        private IMovementStrategy _currentStrategy;
-        private TileData? _previousTile = null;
+        
 
         protected PlayerRole(IMovementStrategy initialStrategy)
         {

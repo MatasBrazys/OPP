@@ -7,9 +7,6 @@ namespace GameShared.Types.Players
     {
         public Defender() : base(new NormalMovement())
         {
-            Health = 5;
-            RoleType = "Defender";
-            RoleColor = Color.Green;
         }
         public override PlayerRole DeepCopy()
         {

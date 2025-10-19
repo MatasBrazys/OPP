@@ -7,9 +7,6 @@ namespace GameShared.Types.Players
     {
         public Hunter() : base(new NormalMovement())
         {
-            Health = 5;
-            RoleType = "Hunter";
-            RoleColor = Color.Brown;
         }
         public override PlayerRole DeepCopy()
         {

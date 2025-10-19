@@ -1,3 +1,4 @@
+using GameShared.Builders;
 using GameShared.Types.Players;
 
 namespace GameShared.Factories
@@ -7,19 +8,24 @@ namespace GameShared.Factories
         // ABSTRACT FACTORY (decoupled creation of players and made on the interface, product family concept exists)
         public PlayerRole CreatePlayer(string roleType, int id, int x, int y)
         {
-            PlayerRole player = roleType.ToLower() switch
+            IPlayerBuilder builder = roleType.ToLower() switch
             {
-                "hunter" => new Hunter(),
-                "mage" => new Mage(),
-                "defender" => new Defender(),
+                "hunter" => new HunterBuilder().Start(),
+                "mage" => new MageBuilder().Start(),
+                "defender" => new DefenderBuilder().Start(),
                 _ => throw new ArgumentException("Invalid player role type")
             };
 
-            player.Id = id;
-            player.X = x;
-            player.Y = y;
+            // Configure common properties via builder
+            builder.SetId(id)
+                   .SetPosition(x, y)
+                   .SetRoleType()
+                   .SetHealth()
+                   .SetColor()
+                   .SetAttackType();
 
-            return player;
+            // Build the final PlayerRole instance
+            return builder.Build();
         }
     }
 }

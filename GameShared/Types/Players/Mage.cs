@@ -7,9 +7,6 @@ namespace GameShared.Types.Players
     {
         public Mage() : base(new NormalMovement())
         {
-            Health = 5;
-            RoleType = "Mage";
-            RoleColor = Color.Blue;
         }
         public override PlayerRole DeepCopy()
         {
