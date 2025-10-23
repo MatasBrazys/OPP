@@ -1,6 +1,7 @@
 ﻿using GameServer.Commands;
 using GameServer.Events;
 using GameShared.Messages;
+using GameShared.Strategies;
 using GameShared.Types.DTOs;
 using GameShared.Types.Map;
 using GameShared.Types.Players;
@@ -26,6 +27,7 @@ namespace GameServer
         private static HashSet<(int x, int y)> eatenCherries = new HashSet<(int x, int y)>();
 
         static readonly string[] AllRoles = new[] { "hunter", "mage", "defender" };
+        private static readonly NormalMovement DefaultMovementStrategy = new();
 
         private CollisionDetector _collisionDetector;
         private List<CommandHandler> _commandHandlers;
@@ -97,8 +99,6 @@ namespace GameServer
 
                 int currentTileX = player.X / 128;
                 int currentTileY = player.Y / 128;
-                var currentTile = Game.Instance.World.Map.GetTile(currentTileX, currentTileY);
-
                 int speed = player.GetSpeed();
                 int newX = player.X + input.Dx * speed;
                 int newY = player.Y + input.Dy * speed;
@@ -119,12 +119,10 @@ namespace GameServer
                     player.X = newX;
                     player.Y = newY;
 
-                    if (enteredNewTile && targetTile is CherryTile cherryTile && cherryTile.CanBeEaten())
+                    if (enteredNewTile)
                     {
-                        cherryTile.Eat();
-                        CreatePlayerClone(player);
-
-                        ReplaceTileWithGrass(targetTileX, targetTileY);
+                        var enterResult = targetTile.OnEnter(player);
+                        ApplyTileEnterResult(player, targetTileX, targetTileY, enterResult);
                     }
 
                     player.OnMoveTile(targetTile);
@@ -135,6 +133,22 @@ namespace GameServer
             }
 
             BroadcastState();
+        }
+
+        private void ApplyTileEnterResult(PlayerRole player, int tileX, int tileY, TileEnterResult result)
+        {
+            var strategy = result.StrategyOverride ?? DefaultMovementStrategy;
+            player.SetMovementStrategy(strategy);
+
+            if (result.SpawnClone)
+            {
+                CreatePlayerClone(player);
+            }
+
+            if (result.ReplaceWithGrass)
+            {
+                ReplaceTileWithGrass(tileX, tileY);
+            }
         }
         private void ReplaceTileWithGrass(int tileX, int tileY)
         {

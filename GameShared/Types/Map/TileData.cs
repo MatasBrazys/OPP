@@ -1,5 +1,6 @@
 // .GameShared/Map/TileData.cs
 using GameShared.Types;
+using GameShared.Types.Players;
 
 namespace GameShared.Types.Map;
 
@@ -12,4 +13,6 @@ public abstract class TileData:Entity
         X = x;
         Y = y;
     }
+
+    public virtual TileEnterResult OnEnter(PlayerRole player) => TileEnterResult.None;
 }

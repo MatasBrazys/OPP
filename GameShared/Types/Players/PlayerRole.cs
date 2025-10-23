@@ -38,32 +38,8 @@ namespace GameShared.Types.Players
             _currentStrategy = initialStrategy ?? new NormalMovement();
         }
 
-        /// <summary>
-        /// Call this after moving onto a tile to update strategy
-        /// </summary>
         public void OnMoveTile(TileData currentTile)
         {
-            if (_previousTile is WaterTile && _currentStrategy is FishSwimMovement && !(currentTile is WaterTile || currentTile is FishTile))
-            {
-                _currentStrategy = new NormalMovement();
-            }
-            else if (currentTile is AppleTile)
-            {
-                _currentStrategy = new AppleBoostMovement();
-            }
-            else if (currentTile is SandTile)
-            {
-                _currentStrategy = new SandMovement();
-            }
-            else if ((currentTile is WaterTile || currentTile is FishTile) && _currentStrategy is not FishSwimMovement)
-            {
-                _currentStrategy = new FishSwimMovement();
-            }
-            else if (_currentStrategy is not FishSwimMovement)
-            {
-                _currentStrategy = new NormalMovement();
-            }
-
             _previousTile = currentTile;
         }
 
