@@ -1,7 +1,6 @@
 ﻿// ./GameShared/Types/Map.cs
 using GameShared.Types.DTOs;
 using GameShared.Types.Map.Decorators;
-using System.Text.Json;
 
 namespace GameShared.Types.Map
 {
@@ -51,7 +50,7 @@ namespace GameShared.Types.Map
                         7 => new CherryTile(x, y),
                         _ => new GrassTile(x, y)
                     };
-                    tiles[x, y] = TileDecoratorFactory.Apply(tile);
+                    tiles[x, y] = TileLoggingComposer.Wrap(tile);
                 }
             }
         }
@@ -64,9 +63,7 @@ namespace GameShared.Types.Map
         {
             if (x >= 0 && x < Width && y >= 0 && y < Height)
             {
-                tiles[x, y] = newTile is TileDecorator
-                    ? newTile
-                    : TileDecoratorFactory.Apply(newTile);
+                tiles[x, y] = TileLoggingComposer.Wrap(newTile);
             }
         }
         public void LoadFromDimensions(int width, int height)
@@ -79,7 +76,7 @@ namespace GameShared.Types.Map
             {
                 for (int y = 0; y < height; y++)
                 {
-                    tiles[x, y] = TileDecoratorFactory.Apply(new GrassTile(x, y));
+                    tiles[x, y] = TileLoggingComposer.Wrap(new GrassTile(x, y));
                 }
             }
         }

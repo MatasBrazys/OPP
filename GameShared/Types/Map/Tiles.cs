@@ -1,4 +1,7 @@
 // ./GameShared/Map/Tiles.cs
+using GameShared.Strategies;
+using GameShared.Types.Players;
+
 namespace GameShared.Types.Map;
 
 public class GrassTile : TileData
@@ -44,6 +47,8 @@ public class AppleTile : TileData
     public int tileId = 3;
     public override string TileType => "Apple";
     public override bool Passable => true;
+    private static readonly AppleBoostMovement BoostStrategy = new();
+    protected override IMovementStrategy MovementStrategy => BoostStrategy;
 
     public AppleTile(int x, int y) : base(x, y) { }
 }
@@ -54,6 +59,8 @@ public class FishTile : TileData
     public int tileId = 4;
     public override string TileType => "Fish";
     public override bool Passable => true;
+    private static readonly FishSwimMovement SwimStrategy = new();
+    protected override IMovementStrategy MovementStrategy => SwimStrategy;
 
     public FishTile(int x, int y) : base(x, y) { }
 }
@@ -63,6 +70,8 @@ public class WaterTile : TileData
     public int tileId = 5;
     public override string TileType => "Water";
     public override bool Passable => false;
+    private static readonly FishSwimMovement SwimStrategy = new();
+    protected override IMovementStrategy MovementStrategy => SwimStrategy;
 
     public WaterTile(int x, int y) : base(x, y) { }
 }
@@ -72,6 +81,8 @@ public class SandTile : TileData
     public int tileId = 6;
     public override string TileType => "Sand";
     public override bool Passable => true;
+    private static readonly SandMovement SandStrategy = new();
+    protected override IMovementStrategy MovementStrategy => SandStrategy;
 
     public SandTile(int x, int y) : base(x, y) { }
 }
@@ -90,5 +101,19 @@ public class CherryTile : TileData
     public bool CanBeEaten()
     {
         return !IsEaten;
+    }
+
+    public override TileEnterResult OnEnter(PlayerRole player)
+    {
+        var result = base.OnEnter(player);
+
+        if (CanBeEaten())
+        {
+            Eat();
+            result = result.WithSpawnClone();
+            result = result.WithReplaceGrass();
+        }
+
+        return result;
     }
 }

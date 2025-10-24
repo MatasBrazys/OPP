@@ -4,6 +4,7 @@ using GameShared.Messages;
 using GameShared.Strategies;
 using GameShared.Types.DTOs;
 using GameShared.Types.Map;
+using GameShared.Types.Map.Decorators;
 using GameShared.Types.Players;
 using System.Data;
 using System.Net;
@@ -28,12 +29,17 @@ namespace GameServer
 
         static readonly string[] AllRoles = new[] { "hunter", "mage", "defender" };
         private static readonly NormalMovement DefaultMovementStrategy = new();
+        // Logging decorator switch
+        private const bool EnableTileLogging = true;
 
         private CollisionDetector _collisionDetector;
         private List<CommandHandler> _commandHandlers;
 
         public void Start(int port)
         {
+            TileLogSink.IsEnabled = EnableTileLogging;
+            TileLogSink.Logger = EnableTileLogging ? message => Console.WriteLine(message) : null;
+
             _collisionDetector = new CollisionDetector();
             InitializeCommandHandlers();
 
