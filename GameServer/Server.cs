@@ -74,7 +74,7 @@ namespace GameServer
                     clients[id] = client;
                     clientRoles[id] = role;
 
-                    var player = Game.Instance.CreatePlayer(role, id);
+                    var player = Game.Instance.WorldFacade.CreatePlayer(role, id);
                 }
                 SendMessage(client, new WelcomeMessage { Id = id, Type = "welcome" });
                 SendStateTo(client);
@@ -100,42 +100,22 @@ namespace GameServer
         {
             lock (locker)
             {
-                var player = Game.Instance.World.GetPlayer(id);
+                var player = Game.Instance.WorldFacade.GetPlayer(id);
                 if (player == null) return;
 
-                int currentTileX = player.X / 128;
-                int currentTileY = player.Y / 128;
-                int speed = player.GetSpeed();
-                int newX = player.X + input.Dx * speed;
-                int newY = player.Y + input.Dy * speed;
+                int newX = player.X + input.Dx * player.GetSpeed();
+                int newY = player.Y + input.Dy * player.GetSpeed();
 
-                int targetTileX = newX / 128;
-                int targetTileY = newY / 128;
+                var result = Game.Instance.WorldFacade.TryMovePlayer(id, newX, newY);
 
-                if (targetTileX < 0 || targetTileX >= Game.Instance.World.Map.Width ||
-                    targetTileY < 0 || targetTileY >= Game.Instance.World.Map.Height)
-                    return;
-
-                var targetTile = Game.Instance.World.Map.GetTile(targetTileX, targetTileY);
-
-                if (player.CanMove(targetTile))
+                if (result != null)
                 {
-                    bool enteredNewTile = (currentTileX != targetTileX || currentTileY != targetTileY);
 
-                    player.X = newX;
-                    player.Y = newY;
+                    ApplyTileEnterResult(player, player.X / 128, player.Y / 128, result);
+            }
 
-                    if (enteredNewTile)
-                    {
-                        var enterResult = targetTile.OnEnter(player);
-                        ApplyTileEnterResult(player, targetTileX, targetTileY, enterResult);
-                    }
-
-                    player.OnMoveTile(targetTile);
-                }
-
-                var players = Game.Instance.World.GetPlayers();
-                _collisionDetector.CheckCollisions(players);
+            var players = Game.Instance.WorldFacade.GetAllPlayers();
+            _collisionDetector.CheckCollisions(players);
             }
 
             BroadcastState();
@@ -153,23 +133,17 @@ namespace GameServer
 
             if (result.ReplaceWithGrass)
             {
-                ReplaceTileWithGrass(tileX, tileY);
+                Game.Instance.WorldFacade.ReplaceTile(tileX, tileY, new GrassTile(tileX, tileY));
+                eatenCherries.Add((tileX, tileY));
+
+                var tileUpdate = new TileUpdateMessage
+                {
+                    X = tileX,
+                    Y = tileY,
+                    TileType = "grass"
+                };
+                BroadcastToAll(tileUpdate);
             }
-        }
-        private void ReplaceTileWithGrass(int tileX, int tileY)
-        {
-            Game.Instance.World.Map.SetTile(tileX, tileY, new GrassTile(tileX, tileY));
-
-            eatenCherries.Add((tileX, tileY));
-
-            var tileUpdate = new TileUpdateMessage
-            {
-                X = tileX,
-                Y = tileY,
-                TileType = "grass"
-            };
-            BroadcastToAll(tileUpdate);
-            Console.WriteLine($"Replaced tile ({tileX}, {tileY}) with grass - broadcasted to all clients");
         }
 
         private void CreatePlayerClone(PlayerRole originalPlayer)
@@ -179,7 +153,7 @@ namespace GameServer
             clone.X = originalPlayer.X + 64;
             clone.Y = originalPlayer.Y + 64;
 
-            Game.Instance.World.AddEntity(clone);
+            Game.Instance.WorldFacade.AddPlayer(clone);
 
             var copyMessage = new CopyMadeMessage
             {
@@ -242,7 +216,7 @@ namespace GameServer
             var snapshot = new StateMessage
             {
                 ServerTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
-                Players = Game.Instance.World.GetPlayers()
+                Players = Game.Instance.WorldFacade.GetAllPlayers()
                     .Select(p => new PlayerDto
                     {
                         Id = p.Id,
@@ -259,10 +233,11 @@ namespace GameServer
         }
         private void SendCurrentMapStateTo(TcpClient client)
         {
+            var (width, height) = Game.Instance.WorldFacade.GetMapSize();
             var mapState = new MapStateMessage
             {
-                Width = Game.Instance.World.Map.Width,
-                Height = Game.Instance.World.Map.Height,
+                Width = width,
+                Height = height,
                 Tiles = new List<MapTileDto>()
             };
 
@@ -270,7 +245,7 @@ namespace GameServer
             {
                 for (int y = 0; y < Game.Instance.World.Map.Height; y++)
                 {
-                    var tile = Game.Instance.World.Map.GetTile(x, y);
+                    var tile = Game.Instance.WorldFacade.GetTileAt(x, y);
 
                     if (eatenCherries.Contains((x, y)))
                     {
@@ -345,9 +320,9 @@ namespace GameServer
                 lock (locker)
                 {
                     clients.Remove(id);
-                    var player = Game.Instance.World.GetPlayer(id);
+                    var player = Game.Instance.WorldFacade.GetPlayer(id);
                     if (player != null)
-                        Game.Instance.World.RemoveEntity(player);
+                        Game.Instance.WorldFacade.RemovePlayer(player);
 
                     clientRoles.Remove(id);
                 }
@@ -359,7 +334,7 @@ namespace GameServer
             StateMessage state;
             lock (locker)
             {
-                var worldPlayers = Game.Instance.World.GetPlayers();
+                var worldPlayers = Game.Instance.WorldFacade.GetAllPlayers();
                 Console.WriteLine($"BroadcastState: World has {worldPlayers.Count} players");
 
                 state = new StateMessage
