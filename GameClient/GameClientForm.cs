@@ -1,4 +1,3 @@
-// File: GameClient/GameClientForm.cs
 using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
@@ -17,6 +16,7 @@ namespace GameClient
         private int myId;
 
         private readonly Dictionary<int, PlayerRenderer> playerRenderers = new();
+        private readonly Dictionary<int, EnemyRenderer> enemyRenderers = new(); 
         private readonly HashSet<Keys> pressedKeys = new();
         private float moveX, moveY;
         private const float MoveSpeed = 1f;
@@ -36,14 +36,22 @@ namespace GameClient
         private readonly Image sandSprite = Image.FromFile("../assets/sand.png");
         private readonly Image cherrySprite = Image.FromFile("../assets/cherry.jpg");
 
+        // Enemy sprites 👇
+        private readonly Image slimeSprite = Image.FromFile("../assets/slime.png"); // ensure this exists
+
         public GameClientForm()
         {
+            this.DoubleBuffered = true; // prevents flickering
+            this.SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint | ControlStyles.OptimizedDoubleBuffer, true);
+
             KeyDown += GameClientForm_KeyDown;
             KeyUp += GameClientForm_KeyUp;
             Paint += GameClientForm_Paint;
             Load += GameClientForm_Load;
-
-            gameTimer = new System.Windows.Forms.Timer { Interval = 32 };
+            
+    
+            
+            gameTimer = new System.Windows.Forms.Timer { Interval = 16 };
             gameTimer.Tick += GameLoop;
             gameTimer.Start();
         }
@@ -64,6 +72,9 @@ namespace GameClient
             SpriteRegistry.Register("Mage", Image.FromFile("../assets/mage.png"));
             SpriteRegistry.Register("Hunter", Image.FromFile("../assets/hunter.png"));
             SpriteRegistry.Register("Defender", Image.FromFile("../assets/defender.png"));
+
+            // Register enemy sprites 👇
+            SpriteRegistry.Register("Slime", slimeSprite);
 
             try
             {
@@ -122,12 +133,13 @@ namespace GameClient
 
                             lock (playerRenderers)
                             {
+                                // Update players
                                 foreach (var ps in state.Players)
                                 {
                                     if (!playerRenderers.TryGetValue(ps.Id, out var existing))
                                     {
-                                        var sprite = SpriteRegistry.GetSprite(ps.RoleType); // use role to get sprite
-                                        var isLocal = ps.Id == myId; // true if this is the local player
+                                        var sprite = SpriteRegistry.GetSprite(ps.RoleType);
+                                        var isLocal = ps.Id == myId;
                                         var renderer = new PlayerRenderer(ps.Id, ps.RoleType, ps.X, ps.Y, sprite, isLocal);
                                         playerRenderers[ps.Id] = renderer;
                                     }
@@ -135,11 +147,36 @@ namespace GameClient
                                     {
                                         existing.SetTarget(ps.X, ps.Y);
                                     }
-                                    // Remove disconnected players
-                                    var serverIds = state.Players.Select(x => x.Id).ToHashSet();
-                                    var toRemove = playerRenderers.Keys.Where(k => !serverIds.Contains(k)).ToList();
-                                    foreach (var rem in toRemove) playerRenderers.Remove(rem);
                                 }
+
+                                // Clean up removed players
+                                var serverPlayerIds = state.Players.Select(x => x.Id).ToHashSet();
+                                var toRemovePlayers = playerRenderers.Keys.Where(k => !serverPlayerIds.Contains(k)).ToList();
+                                foreach (var rem in toRemovePlayers) playerRenderers.Remove(rem);
+                            }
+
+                            lock (enemyRenderers)
+                            {
+                                // Update enemies 👇
+                                foreach (var es in state.Enemies)
+                                {
+                                    if (!enemyRenderers.TryGetValue(es.Id, out var existing))
+                                    {
+                                        var sprite = SpriteRegistry.GetSprite(es.EnemyType);
+                                        if (sprite == null) sprite = slimeSprite; // fallback
+                                        var renderer = new EnemyRenderer(es.Id, es.EnemyType, es.X, es.Y, sprite);
+                                        enemyRenderers[es.Id] = renderer;
+                                    }
+                                    else
+                                    {
+                                        existing.SetTarget(es.X, es.Y);
+                                    }
+                                }
+
+                                // Clean up removed enemies
+                                var serverEnemyIds = state.Enemies.Select(x => x.Id).ToHashSet();
+                                var toRemoveEnemies = enemyRenderers.Keys.Where(k => !serverEnemyIds.Contains(k)).ToList();
+                                foreach (var rem in toRemoveEnemies) enemyRenderers.Remove(rem);
                             }
 
                             Invalidate();
@@ -230,15 +267,25 @@ namespace GameClient
 
         private void GameClientForm_Paint(object? sender, PaintEventArgs e)
         {
+            // Draw map
             foreach (var renderer in tileRenderers.Values)
                 renderer.Draw(e.Graphics);
 
+            // Draw players
             lock (playerRenderers)
             {
                 foreach (var renderer in playerRenderers.Values)
                     renderer.Draw(e.Graphics);
             }
 
+            // Draw enemies 👇
+            lock (enemyRenderers)
+            {
+                foreach (var renderer in enemyRenderers.Values)
+                    renderer.Draw(e.Graphics);
+            }
+
+            // Draw grid
             using var pen = new Pen(Color.Black, 1);
             for (int x = 0; x <= map.Width; x++)
                 e.Graphics.DrawLine(pen, x * TileSize, 0, x * TileSize, map.Height * TileSize);
@@ -248,7 +295,6 @@ namespace GameClient
         }
 
         private void GameClientForm_KeyDown(object? sender, KeyEventArgs e) => pressedKeys.Add(e.KeyCode);
-
         private void GameClientForm_KeyUp(object? sender, KeyEventArgs e) => pressedKeys.Remove(e.KeyCode);
     }
 }

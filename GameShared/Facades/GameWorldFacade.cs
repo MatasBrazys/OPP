@@ -2,6 +2,7 @@
 using GameShared.Types.GameObjects;
 using GameShared.Types.Map;
 using GameShared.Types.Players;
+using GameShared.Types.Enemies;
 
 namespace GameShared.Facades
 {
@@ -9,15 +10,19 @@ namespace GameShared.Facades
     {
         private readonly World _world;
         private readonly IPlayerFactory _playerFactory;
+        private readonly IEnemyFactory _enemyFactory;
+
         private readonly GameObjectFactory _objectFactory;
 
-        public GameWorldFacade(World world, IPlayerFactory playerFactory, GameObjectFactory objectFactory)
+        public GameWorldFacade(World world, IPlayerFactory playerFactory, GameObjectFactory objectFactory, IEnemyFactory enemyFactory)
         {
             _world = world;
             _playerFactory = playerFactory;
             _objectFactory = objectFactory;
+            _enemyFactory = enemyFactory;
         }
 
+        //player methods
         public PlayerRole CreatePlayer(string roleType, int id)
         {
             var (x, y) = FindPassableTile();
@@ -46,6 +51,20 @@ namespace GameShared.Facades
             return _world.GetPlayers();
         }
 
+        //enemy methods
+        public Enemy CreateEnemy(string type, int id)
+        {
+            var (x, y) = FindPassableTile();
+            var enemy = _enemyFactory.CreateEnemy(type, id, x, y);
+            _world.AddEntity(enemy);
+            return enemy;
+        }
+
+        public List<Enemy> GetAllEnemies()
+        {
+            return _world.GetEnemies();
+        }
+        //map methods
         public TileData? GetTileAt(int x, int y)
         {
             return _world.Map.GetTile(x, y);
@@ -66,7 +85,7 @@ namespace GameShared.Facades
             var tile = _world.Map.GetTile(x, y);
             return tile.Passable;
         }
-
+        //movement methods
         public struct MoveResult
         {
             public bool Moved;
@@ -116,7 +135,7 @@ namespace GameShared.Facades
 
             return (0, 0);
         }
-
+        //generic object methods
         public void AddObject(GameObject obj)
         {
             _world.AddEntity(obj);

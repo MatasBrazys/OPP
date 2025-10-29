@@ -1,6 +1,5 @@
-﻿using System.Collections.Generic;
-using System.Linq;
-using GameShared.Types.Players;
+﻿using GameShared.Types.Players;
+using GameShared.Types.Enemies;
 
 namespace GameShared.Types.Map
 {
@@ -45,12 +44,17 @@ namespace GameShared.Types.Map
             return Entities.OfType<PlayerRole>().ToList();
         }
 
+        public List<Enemy> GetEnemies()
+        {
+            return Entities.OfType<Enemy>().ToList();
+        }
         public void Update()
         {
             foreach (var entity in Entities)
             {
                 entity.Update();
             }
+          
         }
     }
 }

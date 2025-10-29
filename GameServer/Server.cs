@@ -216,16 +216,11 @@ namespace GameServer
             var snapshot = new StateMessage
             {
                 ServerTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
-                Players = Game.Instance.WorldFacade.GetAllPlayers()
-                    .Select(p => new PlayerDto
-                    {
-                        Id = p.Id,
-                        X = p.X,
-                        Y = p.Y,
-                        Health = p.Health,
-                        RoleType = p.RoleType, // or a RoleType property
-                        RoleColor = p.RoleColor.Name
-                    })
+                Players = Game.Instance.World.GetPlayers()
+                    .Select(p => new PlayerDto { Id = p.Id, X = p.X, Y = p.Y, Health = p.Health, RoleType = p.RoleType, RoleColor = p.RoleColor.Name })
+                    .ToList(),
+                Enemies = Game.Instance.World.GetEnemies()
+                    .Select(e => new EnemyDto { Id = e.Id, EnemyType = e.EnemyType, X = e.X, Y = e.Y, Health = e.Health })
                     .ToList()
             };
             SendMessage(client, snapshot);
@@ -340,16 +335,11 @@ namespace GameServer
                 state = new StateMessage
                 {
                     ServerTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
-                    Players = worldPlayers
-                        .Select(p => new PlayerDto
-                        {
-                            Id = p.Id,
-                            X = p.X,
-                            Y = p.Y,
-                            Health = p.Health,
-                            RoleType = p.RoleType,
-                            RoleColor = p.RoleColor.Name
-                        })
+                    Players = Game.Instance.World.GetPlayers()
+                        .Select(p => new PlayerDto { Id = p.Id, X = p.X, Y = p.Y, Health = p.Health, RoleType = p.RoleType, RoleColor = p.RoleColor.Name })
+                        .ToList(),
+                    Enemies = Game.Instance.World.GetEnemies()
+                        .Select(e => new EnemyDto { Id = e.Id, EnemyType = e.EnemyType, X = e.X, Y = e.Y, Health = e.Health })
                         .ToList()
                 };
             }
