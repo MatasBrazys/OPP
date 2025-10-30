@@ -1,5 +1,6 @@
 ﻿using GameServer.Commands;
 using GameServer.Events;
+using GameShared.Commands;
 using GameShared.Messages;
 using GameShared.Strategies;
 using GameShared.Types.DTOs;
@@ -11,7 +12,6 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
-using System.Threading;
 using static GameServer.Events.GameEvent;
 
 namespace GameServer
@@ -87,7 +87,8 @@ namespace GameServer
         {
             _commandHandlers = new List<CommandHandler>
             {
-                new CollisionCommandHandler(this)
+                new CollisionCommandHandler(this),
+                new PlayerCommandHandler(this, Game.Instance)
             };
             foreach (var handler in _commandHandlers)
             {
@@ -121,7 +122,7 @@ namespace GameServer
             BroadcastState();
         }
 
-        private void ApplyTileEnterResult(PlayerRole player, int tileX, int tileY, TileEnterResult result)
+        public void ApplyTileEnterResult(PlayerRole player, int tileX, int tileY, TileEnterResult result)
         {
             var strategy = result.StrategyOverride ?? DefaultMovementStrategy;
             player.SetMovementStrategy(strategy);
@@ -290,6 +291,13 @@ namespace GameServer
                             var ping = JsonSerializer.Deserialize<PingMessage>(line);
                             SendMessage(client, new PongMessage { T = ping.T });
                             break;
+                        case "command": 
+                            var commandMsg = JsonSerializer.Deserialize<CommandMessage>(line);
+                            if (commandMsg != null)
+                            {
+                                HandleCommand(id, commandMsg);
+                            }
+                            break;
                         default:
                             SendMessage(client, new ErrorMessage { Code = "bad_message", Detail = $"unknown type: {type}" });
                             break;
@@ -324,14 +332,14 @@ namespace GameServer
                 BroadcastState();
             }
         }
-        private void BroadcastState()
+        public void BroadcastState()
         {
             StateMessage state;
+            List<TcpClient> recipients;
+
+            // 1) Build the snapshot and copy the recipients under the lock
             lock (locker)
             {
-                var worldPlayers = Game.Instance.WorldFacade.GetAllPlayers();
-                Console.WriteLine($"BroadcastState: World has {worldPlayers.Count} players");
-
                 state = new StateMessage
                 {
                     ServerTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
@@ -342,17 +350,27 @@ namespace GameServer
                         .Select(e => new EnemyDto { Id = e.Id, EnemyType = e.EnemyType, X = e.X, Y = e.Y, Health = e.Health })
                         .ToList()
                 };
+
+                // Copy so we can iterate without holding the lock, and without risk of
+                // "collection modified" during sends.
+                recipients = clients.Values.ToList();
             }
 
-            Console.WriteLine($"Broadcasting state with {state.Players.Count} players to {clients.Count} clients");
-            foreach (var clientId in clients.Keys)
-            {
-                Console.WriteLine($"Sending to client {clientId}");
-            }
+            // 2) Release the lock before doing ANY network I/O
+            var json = JsonSerializer.Serialize(state) + "\n";
+            var bytes = Encoding.UTF8.GetBytes(json);
 
-            foreach (var client in clients.Values)
+            foreach (var client in recipients)
             {
-                SendMessage(client, state);
+                try
+                {
+                    client.GetStream().Write(bytes, 0, bytes.Length);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Broadcast write failed: {ex.Message}");
+                    // Optionally mark client for removal, but do NOT take the world lock here.
+                }
             }
         }
 
@@ -361,6 +379,67 @@ namespace GameServer
             var json = System.Text.Json.JsonSerializer.Serialize(msg) + "\n";
             var bytes = System.Text.Encoding.UTF8.GetBytes(json);
             client.GetStream().Write(bytes, 0, bytes.Length);
+        }
+        private void HandleCommand(int playerId, CommandMessage commandMsg)
+        {
+            Console.WriteLine($"=== COMMAND RECEIVED ===");
+            Console.WriteLine($"Player: {playerId}");
+            Console.WriteLine($"Command Type: {commandMsg.Command?.Type}");
+
+            if (commandMsg?.Command == null)
+            {
+                Console.WriteLine("ERROR: Command is null!");
+                return;
+            }
+
+            lock (locker)
+            {
+                try
+                {
+                    Game.Instance.Invoker.ExecuteCommand(commandMsg.Command, playerId);
+
+                    if (commandMsg.Command is MoveCommand)
+                    {
+                        // After movement, check collisions and apply tile effects
+                        var player = Game.Instance.World.GetPlayer(playerId);
+                        if (player != null)
+                        {
+                            int tileX = player.X / 128;
+                            int tileY = player.Y / 128;
+                            var tile = Game.Instance.World.Map.GetTile(tileX, tileY);
+
+                            if (tile != null)
+                            {
+                                var result = tile.OnEnter(player);
+                                if (result != null)
+                                {
+                                    ApplyTileEnterResult(player, tileX, tileY, result);
+                                }
+                            }
+                            var players = Game.Instance.WorldFacade.GetAllPlayers();
+                            _collisionDetector.CheckCollisions(players);
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error executing command: {ex.Message}");
+                }
+            }
+
+            BroadcastState();
+
+            var resultMessage = new CommandResultMessage
+            {
+                PlayerId = playerId,
+                CommandType = commandMsg.Command.Type,
+                Success = true
+            };
+
+            if (clients.TryGetValue(playerId, out TcpClient? client))
+            {
+                SendMessage(client, resultMessage);
+            }
         }
     }
 }

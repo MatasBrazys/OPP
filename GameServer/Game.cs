@@ -4,6 +4,7 @@ using GameShared.Types.Map;
 using GameShared.Types.Players;
 using GameShared.Strategies;
 using System.Threading;
+using GameServer.Commands;
 
 namespace GameServer
 {
@@ -19,6 +20,7 @@ namespace GameServer
         public IEnemyFactory EnemyFactory { get; private set; }
         public GameObjectFactory GameObjectFactory { get; private set; }
         public GameWorldFacade WorldFacade { get; private set; }
+        public Invoker Invoker { get; private set; }
 
         private Thread? _tickThread;
         private bool _running;
@@ -32,6 +34,7 @@ namespace GameServer
             EnemyFactory = new EnemyFactory();
             GameObjectFactory = new GameObjectFactory();
             WorldFacade = new GameWorldFacade(World, PlayerFactory, GameObjectFactory, EnemyFactory);
+            Invoker = new Invoker(World);
         }
 
         public void Start()
@@ -53,15 +56,15 @@ namespace GameServer
         {
             // Create initial game objects or enemies
             var slime = EnemyFactory.CreateEnemy("slime", 9001, 400, 800);
-            slime.RoamingAI = new Strategies.LeftRightRoam(slime.X, 200, 2); // 200px roam, 2px per tick
+            slime.RoamingAI = new Strategies.LeftRightRoam(slime.X, 200, 10); // 200px roam, 2px per tick
             World.AddEntity(slime);
 
-            // Add more enemies or objects as needed
+            Console.WriteLine($"Enemy {slime.Id} created at ({slime.X}, {slime.Y}) with AI: {slime.RoamingAI != null}");
         }
 
         private void GameLoop()
         {
-            const int tickRateMs = 50; // 20 ticks per second
+            const int tickRateMs = 200; // 20 ticks per second
             while (_running)
             {
                 var start = DateTime.UtcNow;
@@ -73,10 +76,12 @@ namespace GameServer
             }
         }
 
-        public void Tick(int dt)
+        public void  Tick(int dt)
         {
             // This actually moves enemies and updates the world
             WorldFacade.UpdateWorld();
+
+            //Server.BroadcastState();
         }
 
         public void Stop()

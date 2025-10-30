@@ -11,4 +11,8 @@
     <ProjectReference Include="..\GameShared\GameShared.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Command\" />
+  </ItemGroup>
+
 </Project>
