@@ -1,4 +1,4 @@
-
+//./GameServer/Events/CollisionEvent.cs
 namespace GameServer.Events;
 public class CollisionEvent : GameEvent
 {

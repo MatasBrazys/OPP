@@ -1,3 +1,4 @@
+//./GameShared/Types/Map/Decorators/TileLoggingComposer.cs
 namespace GameShared.Types.Map.Decorators;
 
 public static class TileLoggingComposer

@@ -1,4 +1,5 @@
 ﻿
+//./GameShared/Messages/ErrorMessage.cs
 namespace GameShared.Messages
 {
     public class ErrorMessage : GameMessage

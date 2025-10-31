@@ -1,4 +1,4 @@
-﻿
+﻿//./GameShared/Messages/CopyMadeMessage.cs
 namespace GameShared.Messages
 {
     public class CopyMadeMessage : GameMessage

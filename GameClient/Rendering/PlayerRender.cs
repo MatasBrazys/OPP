@@ -1,5 +1,7 @@
+// ./GameClient/Rendering/PlayerRender.cs
 using System;
 using System.Drawing;
+using GameShared;
 
 namespace GameClient.Rendering
 {
@@ -43,7 +45,7 @@ namespace GameClient.Rendering
 
             
             // Draw sprite
-            int playerSize = 40;
+            int playerSize = GameConstants.PLAYER_SIZE;
             g.DrawImage(_sprite, drawX, drawY, playerSize, playerSize);
 
             // Draw ID and role above player

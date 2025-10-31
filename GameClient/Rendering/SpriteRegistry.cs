@@ -1,6 +1,8 @@
 
 // File: GameClient/Rendering/SpriteRegistry.cs
+using GameShared;
 namespace GameClient.Rendering
+
 {
     public static class SpriteRegistry
     {
@@ -21,7 +23,7 @@ namespace GameClient.Rendering
                 return fallback;
 
             // last-resort blank image
-            return new Bitmap(128, 128);
+            return new Bitmap( GameConstants.TILE_SIZE,  GameConstants.TILE_SIZE);
         }
     }
 }

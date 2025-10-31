@@ -1,4 +1,4 @@
-﻿
+﻿//./GameShared/Messages/MapStateMessage.cs
 namespace GameShared.Messages
 {
     public class MapStateMessage : GameMessage

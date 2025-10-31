@@ -1,4 +1,4 @@
-﻿
+﻿//  ./GameShared/Messages/GoobyeMessage.cs
 
 namespace GameShared.Messages
 {

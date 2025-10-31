@@ -1,4 +1,5 @@
-﻿using GameShared.Types.Players;
+﻿//./GameShared/Types/Map/World.cs
+using GameShared.Types.Players;
 using GameShared.Types.Enemies;
 
 namespace GameShared.Types.Map
@@ -40,7 +41,7 @@ namespace GameShared.Types.Map
 
         public List<PlayerRole> GetPlayers()
         {
-            Console.WriteLine($"World.GetPlayers: world={GetHashCode()}, countIndex={Entities.OfType<PlayerState>().ToList().Count}");
+            Console.WriteLine($"World.GetPlayers: world={GetHashCode()}, count={Entities.OfType<PlayerRole>().Count()}"); 
             return Entities.OfType<PlayerRole>().ToList();
         }
 

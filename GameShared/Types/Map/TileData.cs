@@ -11,6 +11,7 @@ public abstract class TileData:Entity
 
     public virtual bool Passable => true;
     public abstract string TileType { get; }
+    public override string EntityType => TileType;
     protected virtual IMovementStrategy MovementStrategy => DefaultMovementStrategy;
 
     protected TileData(int x, int y)

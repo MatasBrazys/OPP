@@ -1,5 +1,7 @@
+// ./GameClient/Rendering/EnemyRenderer.cs
 using System;
 using System.Drawing;
+using GameShared;
 
 namespace GameClient.Rendering
 {
@@ -49,7 +51,7 @@ namespace GameClient.Rendering
             float drawX = _prevX + (_targetX - _prevX) * t;
             float drawY = _prevY + (_targetY - _prevY) * t;
 
-            int size = 40;
+            int size = GameConstants.ENEMY_SIZE;
             g.DrawImage(_sprite, drawX, drawY, size, size);
 
             // Draw HP bar above enemy

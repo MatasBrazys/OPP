@@ -1,3 +1,4 @@
+//./GameShared/Types/Enemies/Slime.cs
 using GameShared.Strategies;
 using System;
 
@@ -11,6 +12,7 @@ namespace GameShared.Types.Enemies
         {
             EnemyType = "Slime";
             Health = 20;
+            MaxHealth = 20;
         }
 
      

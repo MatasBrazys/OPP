@@ -1,4 +1,4 @@
-﻿
+﻿//./GameShared/Messages/StateMessage.cs
 using GameShared.Types.DTOs;
 
 namespace GameShared.Messages
