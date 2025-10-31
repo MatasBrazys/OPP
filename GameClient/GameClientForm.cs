@@ -1,4 +1,3 @@
-// ./GameClient/GameClientForm.cs
 using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
@@ -7,6 +6,8 @@ using GameShared.Types.Map;
 using GameClient.Rendering;
 using GameClient.Adapters;
 using GameShared;
+using GameShared.Facades;
+using GameShared.Types.DTOs;
 
 namespace GameClient
 {
@@ -16,7 +17,6 @@ namespace GameClient
         private NetworkStream? stream;
         private Thread? receiveThread;
         private int myId;
-
         private readonly Dictionary<int, PlayerRenderer> playerRenderers = new();
         private readonly Dictionary<int, EnemyRenderer> enemyRenderers = new(); 
         private readonly HashSet<Keys> pressedKeys = new();
@@ -26,7 +26,9 @@ namespace GameClient
         private readonly System.Windows.Forms.Timer gameTimer;
         private Map map = new();
         private readonly Dictionary<(int x, int y), TileRenderer> tileRenderers = new();
-        private const int TileSize =  GameConstants.TILE_SIZE;
+        private const int TileSize = GameConstants.TILE_SIZE;
+
+        private readonly CommandInvoker commandInvoker = new();
 
         // Tile sprites
         private readonly Image grassSprite = Image.FromFile("../assets/grass.png");
@@ -38,20 +40,19 @@ namespace GameClient
         private readonly Image sandSprite = Image.FromFile("../assets/sand.png");
         private readonly Image cherrySprite = Image.FromFile("../assets/cherry.jpg");
 
-        // Enemy sprites 👇
-        private readonly Image slimeSprite = Image.FromFile("../assets/slime.png"); // ensure this exists
+        // Enemy sprites
+        private readonly Image slimeSprite = Image.FromFile("../assets/slime.png"); 
 
         public GameClientForm()
         {
-            this.DoubleBuffered = true; // prevents flickering
+            this.DoubleBuffered = true;
             this.SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint | ControlStyles.OptimizedDoubleBuffer, true);
 
             KeyDown += GameClientForm_KeyDown;
             KeyUp += GameClientForm_KeyUp;
+            MouseClick += GameClientForm_MouseClick;
             Paint += GameClientForm_Paint;
             Load += GameClientForm_Load;
-            
-    
             
             gameTimer = new System.Windows.Forms.Timer { Interval = 16 };
             gameTimer.Tick += GameLoop;
@@ -75,7 +76,7 @@ namespace GameClient
             SpriteRegistry.Register("Hunter", Image.FromFile("../assets/hunter.png"));
             SpriteRegistry.Register("Defender", Image.FromFile("../assets/defender.png"));
 
-            // Register enemy sprites 👇
+            // Register enemy sprites
             SpriteRegistry.Register("Slime", slimeSprite);
 
             try
@@ -133,56 +134,8 @@ namespace GameClient
                             var state = JsonSerializer.Deserialize<StateMessage>(line);
                             if (state == null) break;
 
-                            lock (playerRenderers)
-                            {
-                                // Update players
-                                foreach (var ps in state.Players)
-                                {
-                                    if (!playerRenderers.TryGetValue(ps.Id, out var existing))
-                                    {
-                                        var sprite = SpriteRegistry.GetSprite(ps.RoleType);
-                                        var isLocal = ps.Id == myId;
-                                        var renderer = new PlayerRenderer(ps.Id, ps.RoleType, ps.X, ps.Y, sprite, isLocal);
-                                        playerRenderers[ps.Id] = renderer;
-                                    }
-                                    else
-                                    {
-                                        existing.SetTarget(ps.X, ps.Y);
-                                    }
-                                }
-
-                                // Clean up removed players
-                                var serverPlayerIds = state.Players.Select(x => x.Id).ToHashSet();
-                                var toRemovePlayers = playerRenderers.Keys.Where(k => !serverPlayerIds.Contains(k)).ToList();
-                                foreach (var rem in toRemovePlayers) playerRenderers.Remove(rem);
-                            }
-
-                            lock (enemyRenderers)
-                            {
-                                // Update enemies 👇
-                                foreach (var es in state.Enemies)
-                                {
-                                    if (!enemyRenderers.TryGetValue(es.Id, out var existing))
-                                    {
-                                        var sprite = SpriteRegistry.GetSprite(es.EnemyType);
-                                        if (sprite == null) sprite = slimeSprite; // fallback
-                                        var renderer = new EnemyRenderer(es.Id, es.EnemyType, es.X, es.Y, sprite, es.Health, es.MaxHealth);
-                                        enemyRenderers[es.Id] = renderer;
-                                    }
-                                    else
-                                    {
-                                        existing.SetTarget(es.X, es.Y);
-                                        existing.CurrentHP = es.Health;
-                                        existing.MaxHP = es.MaxHealth;
-                                    }
-                                }
-
-                                // Clean up removed enemies
-                                var serverEnemyIds = state.Enemies.Select(x => x.Id).ToHashSet();
-                                var toRemoveEnemies = enemyRenderers.Keys.Where(k => !serverEnemyIds.Contains(k)).ToList();
-                                foreach (var rem in toRemoveEnemies) enemyRenderers.Remove(rem);
-                            }
-
+                            UpdatePlayers(state.Players);
+                            UpdateEnemies(state.Enemies);
                             Invalidate();
                             break;
 
@@ -209,22 +162,69 @@ namespace GameClient
             }
         }
 
+        private void UpdatePlayers(List<PlayerDto> players)
+        {
+            lock (playerRenderers)
+            {
+                foreach (var ps in players)
+                {
+                    if (!playerRenderers.TryGetValue(ps.Id, out var existing))
+                    {
+                        var sprite = SpriteRegistry.GetSprite(ps.RoleType);
+                        var isLocal = ps.Id == myId;
+                        var renderer = new PlayerRenderer(ps.Id, ps.RoleType, ps.X, ps.Y, sprite, isLocal);
+                        playerRenderers[ps.Id] = renderer;
+                    }
+                    else
+                    {
+                        existing.SetTarget(ps.X, ps.Y);
+                    }
+                }
+
+                var serverPlayerIds = players.Select(x => x.Id).ToHashSet();
+                var toRemovePlayers = playerRenderers.Keys.Where(k => !serverPlayerIds.Contains(k)).ToList();
+                foreach (var rem in toRemovePlayers) playerRenderers.Remove(rem);
+            }
+        }
+
+        private void UpdateEnemies(List<EnemyDto> enemies)
+        {
+            lock (enemyRenderers)
+            {
+                foreach (var es in enemies)
+                {
+                    if (!enemyRenderers.TryGetValue(es.Id, out var existing))
+                    {
+                        var sprite = SpriteRegistry.GetSprite(es.EnemyType) ?? slimeSprite;
+                        var renderer = new EnemyRenderer(es.Id, es.EnemyType, es.X, es.Y, sprite, es.Health, es.MaxHealth);
+                        enemyRenderers[es.Id] = renderer;
+                    }
+                    else
+                    {
+                        existing.SetTarget(es.X, es.Y);
+                        existing.CurrentHP = es.Health;
+                        existing.MaxHP = es.MaxHealth;
+                    }
+                }
+
+                var serverEnemyIds = enemies.Select(x => x.Id).ToHashSet();
+                var toRemoveEnemies = enemyRenderers.Keys.Where(k => !serverEnemyIds.Contains(k)).ToList();
+                foreach (var rem in toRemoveEnemies) enemyRenderers.Remove(rem);
+            }
+        }
+
         private void GameLoop(object? sender, EventArgs e)
         {
-            if (stream == null || myId == 0) return;
+            if (client == null || myId == 0) return;
 
             UpdateMovement();
 
-            var msg = new InputMessage
-            {
-                Dx = (int)Math.Round(moveX),
-                Dy = (int)Math.Round(moveY)
-            };
+            // Send WalkCommand
+            var walkCommand = new WalkCommand(client, myId, moveX, moveY);
+            commandInvoker.AddCommand(walkCommand);
 
-            var json = JsonSerializer.Serialize(msg) + "\n";
-            var data = Encoding.UTF8.GetBytes(json);
-
-            try { stream.Write(data, 0, data.Length); } catch { }
+            // Execute queued commands
+            commandInvoker.ExecuteCommands();
 
             Invalidate();
         }
@@ -249,6 +249,19 @@ namespace GameClient
             moveY = dy * MoveSpeed;
         }
 
+        private void GameClientForm_MouseClick(object sender, MouseEventArgs e)
+        {
+            if (myId == 0 || client == null) return;
+
+            int targetX = e.X / TileSize;
+            int targetY = e.Y / TileSize;
+
+            if (!playerRenderers.TryGetValue(myId, out var renderer)) return;
+
+            var attackCommand = new AttackCommand(client, myId, renderer.Role, targetX, targetY);
+            commandInvoker.AddCommand(attackCommand);
+        }
+
         private void UpdateTile(int x, int y, string tileType)
         {
             TileData newTile = tileType.ToLower() switch
@@ -271,29 +284,17 @@ namespace GameClient
 
         private void GameClientForm_Paint(object? sender, PaintEventArgs e)
         {
-            // Draw map
-            foreach (var renderer in tileRenderers.Values)
-                renderer.Draw(e.Graphics);
+            foreach (var renderer in tileRenderers.Values) renderer.Draw(e.Graphics);
 
-            // Draw players
             lock (playerRenderers)
-            {
-                foreach (var renderer in playerRenderers.Values)
-                    renderer.Draw(e.Graphics);
-            }
+                foreach (var renderer in playerRenderers.Values) renderer.Draw(e.Graphics);
 
-            // Draw enemies 👇
             lock (enemyRenderers)
-            {
-                foreach (var renderer in enemyRenderers.Values)
-                    renderer.Draw(e.Graphics);
-            }
+                foreach (var renderer in enemyRenderers.Values) renderer.Draw(e.Graphics);
 
-            // Draw grid
             using var pen = new Pen(Color.Black, 1);
             for (int x = 0; x <= map.Width; x++)
                 e.Graphics.DrawLine(pen, x * TileSize, 0, x * TileSize, map.Height * TileSize);
-
             for (int y = 0; y <= map.Height; y++)
                 e.Graphics.DrawLine(pen, 0, y * TileSize, map.Width * TileSize, y * TileSize);
         }

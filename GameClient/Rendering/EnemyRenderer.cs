@@ -94,6 +94,7 @@ namespace GameClient.Rendering
 
             using var textBrush = new SolidBrush(Color.Black);
             g.DrawString(hpText, font, textBrush, textX, textY);
+            //System.Console.WriteLine("Drawing HP Bar: " + MaxHP);
         }
         public void TakeDamage(int amount)
             {

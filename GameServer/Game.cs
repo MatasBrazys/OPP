@@ -81,7 +81,6 @@ namespace GameServer
 
         public void Tick(int dt)
         {
-            // This actually moves enemies and updates the world
             WorldFacade.UpdateWorld();
         }
 

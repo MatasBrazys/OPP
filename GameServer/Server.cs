@@ -292,6 +292,10 @@ namespace GameServer
                             var input = JsonSerializer.Deserialize<InputMessage>(line);
                             HandleInput(id, input);
                             break;
+                        case "attack":
+                            var attack = JsonSerializer.Deserialize<AttackMessage>(line);
+                            OnReceiveAttack(attack);
+                            break;
                         case "ping":
                             var ping = JsonSerializer.Deserialize<PingMessage>(line);
                             SendMessage(client, new PongMessage { T = ping.T });
@@ -345,7 +349,7 @@ namespace GameServer
                         .Select(p => new PlayerDto { Id = p.Id, X = p.X, Y = p.Y, Health = p.Health, RoleType = p.RoleType, RoleColor = p.RoleColor.Name })
                         .ToList(),
                     Enemies = Game.Instance.World.GetEnemies()
-                        .Select(e => new EnemyDto { Id = e.Id, EnemyType = e.EnemyType, X = e.X, Y = e.Y, Health = e.Health })
+                        .Select(e => new EnemyDto { Id = e.Id, EnemyType = e.EnemyType, X = e.X, Y = e.Y, Health = e.Health, MaxHealth=e.MaxHealth })
                         .ToList()
                 };
             }
@@ -368,5 +372,34 @@ namespace GameServer
             var bytes = System.Text.Encoding.UTF8.GetBytes(json);
             client.GetStream().Write(bytes, 0, bytes.Length);
         }
+      public void OnReceiveAttack(AttackMessage msg)
+        {
+            var player = Game.Instance.WorldFacade.GetPlayer(msg.PlayerId);
+            if (player == null) return;
+
+            // Find all enemies on the target tile
+            var enemies = Game.Instance.WorldFacade.GetAllEnemies()
+                            .Where(e => e.X / GameConstants.TILE_SIZE == msg.TargetX &&
+                                        e.Y / GameConstants.TILE_SIZE == msg.TargetY)
+                            .ToList();
+
+            foreach (var enemy in enemies)
+            {
+                enemy.Health -= 10;
+
+                if (enemy.Health <= 0)
+                {
+                    // Remove enemy from world
+                    Game.Instance.WorldFacade.RemoveEnemy(enemy);
+
+                    // Optional: log death
+                    Console.WriteLine($"Enemy {enemy.Id} died at ({enemy.X}, {enemy.Y})");
+                }
+            }
+
+            // Immediately broadcast state to all clients
+            BroadcastState();
+}
+
     }
 }

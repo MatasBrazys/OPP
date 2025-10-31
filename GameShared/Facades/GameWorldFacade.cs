@@ -60,6 +60,10 @@ namespace GameShared.Facades
             _world.AddEntity(enemy);
             return enemy;
         }
+        public void RemoveEnemy(Enemy enemy)
+        {
+            _world.RemoveEntity(enemy);
+        }
 
         public List<Enemy> GetAllEnemies()
         {
