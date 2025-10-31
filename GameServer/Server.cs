@@ -12,8 +12,9 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
-using System.Threading;
-using static GameServer.Events.GameEvent;
+using GameServer.Collision;
+
+
 using GameShared;
 
 namespace GameServer
@@ -70,8 +71,9 @@ namespace GameServer
                     }
 
                     // Pick a random role from the remaining ones
-                    role = available[Random.Shared.Next(available.Count)];
 
+                    // role = available[Random.Shared.Next(available.Count)];
+                    role = "defender";
 
                     id = nextId++;
                     clients[id] = client;
@@ -377,29 +379,9 @@ namespace GameServer
             var player = Game.Instance.WorldFacade.GetPlayer(msg.PlayerId);
             if (player == null) return;
 
-            // Find all enemies on the target tile
-            var enemies = Game.Instance.WorldFacade.GetAllEnemies()
-                            .Where(e => e.X / GameConstants.TILE_SIZE == msg.TargetX &&
-                                        e.Y / GameConstants.TILE_SIZE == msg.TargetY)
-                            .ToList();
-
-            foreach (var enemy in enemies)
-            {
-                enemy.Health -= 10;
-
-                if (enemy.Health <= 0)
-                {
-                    // Remove enemy from world
-                    Game.Instance.WorldFacade.RemoveEnemy(enemy);
-
-                    // Optional: log death
-                    Console.WriteLine($"Enemy {enemy.Id} died at ({enemy.X}, {enemy.Y})");
-                }
-            }
-
-            // Immediately broadcast state to all clients
+            player.AttackStrategy.ExecuteAttack(player, msg);
             BroadcastState();
-}
+        }
 
     }
 }

@@ -4,43 +4,46 @@ using GameServer.Events;
 using GameShared.Types;
 using static GameServer.Events.GameEvent;
 
-public class CollisionDetector : Subject
+namespace GameServer.Collision
 {
-    public void CheckCollisions(IEnumerable<Entity> entities) // ✅ Changed from object to Entity
+    public class CollisionDetector : Subject
     {
-        var entityList = entities.ToList();
-
-        for (int i = 0; i < entityList.Count; i++)
+        public void CheckCollisions(IEnumerable<Entity> entities) // ✅ Changed from object to Entity
         {
-            for (int j = i + 1; j < entityList.Count; j++)
-            {
-                var entityA = entityList[i];
-                var entityB = entityList[j];
+            var entityList = entities.ToList();
 
-                if (CheckAABBCollision(entityA, entityB))
+            for (int i = 0; i < entityList.Count; i++)
+            {
+                for (int j = i + 1; j < entityList.Count; j++)
                 {
-                    var collisionEvent = new CollisionEvent(
-                        entityA.Id,
-                        entityB.Id,
-                        entityA.EntityType,
-                        entityB.EntityType,
-                        (entityA.X + entityB.X) / 2f,
-                        (entityA.Y + entityB.Y) / 2f
-                    );
-                    
-                    NotifyObservers(collisionEvent);
+                    var entityA = entityList[i];
+                    var entityB = entityList[j];
+
+                    if (CheckAABBCollision(entityA, entityB))
+                    {
+                        var collisionEvent = new CollisionEvent(
+                            entityA.Id,
+                            entityB.Id,
+                            entityA.EntityType,
+                            entityB.EntityType,
+                            (entityA.X + entityB.X) / 2f,
+                            (entityA.Y + entityB.Y) / 2f
+                        );
+
+                        NotifyObservers(collisionEvent);
+                    }
                 }
             }
         }
-    }
 
-    private bool CheckAABBCollision(Entity entityA, Entity entityB) // ✅ Changed from object to Entity
-    {
-        const float size = 32f; // bounding box size
+        private bool CheckAABBCollision(Entity entityA, Entity entityB) // ✅ Changed from object to Entity
+        {
+            const float size = 32f; // bounding box size
 
-        return entityA.X < entityB.X + size &&
-               entityA.X + size > entityB.X &&
-               entityA.Y < entityB.Y + size &&
-               entityA.Y + size > entityB.Y;
+            return entityA.X < entityB.X + size &&
+                   entityA.X + size > entityB.X &&
+                   entityA.Y < entityB.Y + size &&
+                   entityA.Y + size > entityB.Y;
+        }
     }
 }

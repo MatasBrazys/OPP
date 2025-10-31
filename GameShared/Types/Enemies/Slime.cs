@@ -11,8 +11,8 @@ namespace GameShared.Types.Enemies
         public Slime() 
         {
             EnemyType = "Slime";
-            Health = 20;
-            MaxHealth = 20;
+            Health = 100;
+            MaxHealth = 100;
         }
 
      

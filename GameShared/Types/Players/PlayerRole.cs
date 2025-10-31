@@ -1,5 +1,6 @@
 //./GameShared/Types/Players/PlayerRole.cs
 using System.Drawing;
+using GameShared.Interfaces;
 using GameShared.Strategies;
 using GameShared.Types.Map;
 
@@ -10,9 +11,11 @@ namespace GameShared.Types.Players
         public int Health { get; internal set; }
         public string RoleType { get; internal set; }
         public Color RoleColor { get; internal set; }
+        public IAttackStrategy AttackStrategy { get; set; }
 
         public string AttackType { get; internal set; }
         public override string EntityType => RoleType;
+       
 
         private IMovementStrategy _currentStrategy;
         private TileData? _previousTile = null;

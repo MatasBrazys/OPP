@@ -6,7 +6,6 @@ using GameShared.Types.Map;
 using GameClient.Rendering;
 using GameClient.Adapters;
 using GameShared;
-using GameShared.Facades;
 using GameShared.Types.DTOs;
 
 namespace GameClient
@@ -42,6 +41,9 @@ namespace GameClient
 
         // Enemy sprites
         private readonly Image slimeSprite = Image.FromFile("../assets/slime.png"); 
+
+        private readonly List<SlashEffect> activeSlashes = new();
+
 
         public GameClientForm()
         {
@@ -260,6 +262,14 @@ namespace GameClient
 
             var attackCommand = new AttackCommand(client, myId, renderer.Role, targetX, targetY);
             commandInvoker.AddCommand(attackCommand);
+            SpawnSlashAnimation(targetX, targetY);
+        }
+
+        private void SpawnSlashAnimation(int tileX, int tileY)
+        {
+            float centerX = tileX * TileSize + TileSize / 2;
+            float centerY = tileY * TileSize + TileSize / 2;
+            activeSlashes.Add(new SlashEffect(centerX, centerY, TileSize));
         }
 
         private void UpdateTile(int x, int y, string tileType)
@@ -291,7 +301,16 @@ namespace GameClient
 
             lock (enemyRenderers)
                 foreach (var renderer in enemyRenderers.Values) renderer.Draw(e.Graphics);
-
+            
+            
+            // Draw slash effects
+            for (int i = activeSlashes.Count - 1; i >= 0; i--)
+            {
+                var slash = activeSlashes[i];
+                slash.Draw(e.Graphics);
+                if (slash.IsFinished)
+                    activeSlashes.RemoveAt(i);
+            }
             using var pen = new Pen(Color.Black, 1);
             for (int x = 0; x <= map.Width; x++)
                 e.Graphics.DrawLine(pen, x * TileSize, 0, x * TileSize, map.Height * TileSize);

@@ -1,11 +1,13 @@
-﻿//./GameShared/Facades/GameWorldFacade.cs
+﻿//./GameServer/Facades/GameWorldFacade.cs
 using GameShared.Factories;
 using GameShared.Types.GameObjects;
 using GameShared.Types.Map;
 using GameShared.Types.Players;
 using GameShared.Types.Enemies;
+using GameServer.Combat;
+
 using GameShared;
-namespace GameShared.Facades
+namespace GameServer.Facades
 {
     public class GameWorldFacade
     {
@@ -28,6 +30,10 @@ namespace GameShared.Facades
         {
             var (x, y) = FindPassableTile();
             var player = _playerFactory.CreatePlayer(roleType, id, x, y);
+            if (roleType == "defender" )
+                {
+                    player.AttackStrategy = new DefenderAttackStrategy();
+                }
             _world.AddEntity(player);
             return player;
         }
@@ -52,7 +58,10 @@ namespace GameShared.Facades
             return _world.GetPlayers();
         }
 
-        //enemy methods
+        //enemy methods---
+
+        //reik pridet strategijas enemy, kol kas kuria enemy be strategiju, o jei nori strategija,
+        //  tai reikia sukurti enemy su strategija per factory
         public Enemy CreateEnemy(string type, int id)
         {
             var (x, y) = FindPassableTile();
