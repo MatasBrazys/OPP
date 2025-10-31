@@ -56,6 +56,11 @@ namespace GameServer
             slime.RoamingAI = new Strategies.LeftRightRoam(slime.X, 200, 2); // 200px roam, 2px per tick
             World.AddEntity(slime);
 
+
+            var slime1 = EnemyFactory.CreateEnemy("slime", 9002, 850, 400);
+            slime1.RoamingAI = new Strategies.LeftRightRoam(slime1.X, 100, 2); // 200px roam, 2px per tick
+            World.AddEntity(slime1);
+
             // Add more enemies or objects as needed
         }
 

@@ -220,7 +220,7 @@ namespace GameServer
                     .Select(p => new PlayerDto { Id = p.Id, X = p.X, Y = p.Y, Health = p.Health, RoleType = p.RoleType, RoleColor = p.RoleColor.Name })
                     .ToList(),
                 Enemies = Game.Instance.World.GetEnemies()
-                    .Select(e => new EnemyDto { Id = e.Id, EnemyType = e.EnemyType, X = e.X, Y = e.Y, Health = e.Health })
+                    .Select(e => new EnemyDto { Id = e.Id, EnemyType = e.EnemyType, X = e.X, Y = e.Y, Health = e.Health, MaxHealth=e.Health })
                     .ToList()
             };
             SendMessage(client, snapshot);

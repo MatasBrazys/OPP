@@ -164,7 +164,7 @@ namespace GameClient
                                     {
                                         var sprite = SpriteRegistry.GetSprite(es.EnemyType);
                                         if (sprite == null) sprite = slimeSprite; // fallback
-                                        var renderer = new EnemyRenderer(es.Id, es.EnemyType, es.X, es.Y, sprite);
+                                        var renderer = new EnemyRenderer(es.Id, es.EnemyType, es.X, es.Y, sprite, es.Health, es.MaxHealth);
                                         enemyRenderers[es.Id] = renderer;
                                     }
                                     else
