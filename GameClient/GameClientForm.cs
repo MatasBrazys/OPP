@@ -1,3 +1,4 @@
+// ./GameClient/GameClientForm.cs
 using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
@@ -5,6 +6,7 @@ using GameShared.Messages;
 using GameShared.Types.Map;
 using GameClient.Rendering;
 using GameClient.Adapters;
+using GameShared;
 
 namespace GameClient
 {
@@ -24,7 +26,7 @@ namespace GameClient
         private readonly System.Windows.Forms.Timer gameTimer;
         private Map map = new();
         private readonly Dictionary<(int x, int y), TileRenderer> tileRenderers = new();
-        private const int TileSize = 128;
+        private const int TileSize =  GameConstants.TILE_SIZE;
 
         // Tile sprites
         private readonly Image grassSprite = Image.FromFile("../assets/grass.png");
@@ -164,12 +166,14 @@ namespace GameClient
                                     {
                                         var sprite = SpriteRegistry.GetSprite(es.EnemyType);
                                         if (sprite == null) sprite = slimeSprite; // fallback
-                                        var renderer = new EnemyRenderer(es.Id, es.EnemyType, es.X, es.Y, sprite);
+                                        var renderer = new EnemyRenderer(es.Id, es.EnemyType, es.X, es.Y, sprite, es.Health, es.MaxHealth);
                                         enemyRenderers[es.Id] = renderer;
                                     }
                                     else
                                     {
                                         existing.SetTarget(es.X, es.Y);
+                                        existing.CurrentHP = es.Health;
+                                        existing.MaxHP = es.MaxHealth;
                                     }
                                 }
 

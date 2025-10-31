@@ -1,3 +1,4 @@
+//./GameShared/Types/Players/Hunter.cs
 using System.Drawing;
 using GameShared.Strategies;
 

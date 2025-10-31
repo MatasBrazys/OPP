@@ -1,9 +1,10 @@
-﻿using GameShared.Factories;
+﻿//./GameShared/Facades/GameWorldFacade.cs
+using GameShared.Factories;
 using GameShared.Types.GameObjects;
 using GameShared.Types.Map;
 using GameShared.Types.Players;
 using GameShared.Types.Enemies;
-
+using GameShared;
 namespace GameShared.Facades
 {
     public class GameWorldFacade
@@ -97,8 +98,8 @@ namespace GameShared.Facades
             var player = _world.GetPlayer(playerId);
             if (player == null) return null;
 
-            int tileX = newX / 128;
-            int tileY = newY / 128;
+            int tileX = newX / GameConstants.TILE_SIZE;
+            int tileY = newY / GameConstants.TILE_SIZE;
 
             if (tileX < 0 || tileX >= _world.Map.Width || tileY < 0 || tileY >= _world.Map.Height)
                 return null;
@@ -120,7 +121,7 @@ namespace GameShared.Facades
 
         private (int x, int y) FindPassableTile()
         {
-            const int TileSize = 128;
+            const int TileSize =  GameConstants.TILE_SIZE;
 
             for (int ty = 0; ty < _world.Map.Height; ty++)
             {

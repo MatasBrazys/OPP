@@ -1,3 +1,4 @@
+//./GameShared/Factories/IPlayerFactory.cs
 using GameShared.Types.Players;
 
 namespace GameShared.Factories

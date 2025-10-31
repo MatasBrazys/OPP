@@ -1,3 +1,4 @@
+//./GameShared/Types/DTOs/EnemyDto.cs
 namespace GameShared.Types.DTOs
 {
     public class EnemyDto
@@ -7,5 +8,6 @@ namespace GameShared.Types.DTOs
         public int X { get; set; }
         public int Y { get; set; }
         public int Health { get; set; }
+        public int MaxHealth { get; set; }
     }
 }

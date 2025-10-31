@@ -1,10 +1,11 @@
+//./GameShared/Types/GameObjects/Tree.cs
 namespace GameShared.Types.GameObjects
 {
     public class Tree : GameObject
     {
         public Tree()
         {
-            Type = "Tree";
+            Type = "TreeObject";
             IsDestructible = true;
         }
 

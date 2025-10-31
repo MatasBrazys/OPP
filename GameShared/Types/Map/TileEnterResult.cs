@@ -1,3 +1,4 @@
+//./GameShared/Types/Map/TileEnterResult.cs
 using GameShared.Strategies;
 
 namespace GameShared.Types.Map;

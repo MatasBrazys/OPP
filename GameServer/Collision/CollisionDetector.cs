@@ -1,10 +1,12 @@
-﻿using GameServer;
+﻿// ./GameServer/Collision/CollisionDetector.cs
+using GameServer;
 using GameServer.Events;
+using GameShared.Types;
 using static GameServer.Events.GameEvent;
 
 public class CollisionDetector : Subject
 {
-    public void CheckCollisions(IEnumerable<object> entities)
+    public void CheckCollisions(IEnumerable<Entity> entities) // ✅ Changed from object to Entity
     {
         var entityList = entities.ToList();
 
@@ -17,68 +19,28 @@ public class CollisionDetector : Subject
 
                 if (CheckAABBCollision(entityA, entityB))
                 {
-                    string typeA = GetEntityType(entityA);
-                    string typeB = GetEntityType(entityB);
-                    
-
                     var collisionEvent = new CollisionEvent(
-                        GetEntityId(entityA), GetEntityId(entityB),
-                        typeA, typeB,
-                        (GetEntityX(entityA) + GetEntityX(entityB)) / 2,
-                        (GetEntityY(entityA) + GetEntityY(entityB)) / 2
+                        entityA.Id,
+                        entityB.Id,
+                        entityA.EntityType,
+                        entityB.EntityType,
+                        (entityA.X + entityB.X) / 2f,
+                        (entityA.Y + entityB.Y) / 2f
                     );
-                    //reik switcho ne playeriams
+                    
                     NotifyObservers(collisionEvent);
                 }
             }
         }
     }
 
-    private bool CheckAABBCollision(object entityA, object entityB)
+    private bool CheckAABBCollision(Entity entityA, Entity entityB) // ✅ Changed from object to Entity
     {
         const float size = 32f; // bounding box size
 
-        float aX = GetEntityX(entityA);
-        float aY = GetEntityY(entityA);
-        float bX = GetEntityX(entityB);
-        float bY = GetEntityY(entityB);
-
-        return aX < bX + size &&
-               aX + size > bX &&
-               aY < bY + size &&
-               aY + size > bY;
-    }
-
-    private float GetEntityX(object entity)
-    {
-        var prop = entity.GetType().GetProperty("X");
-        if (prop == null) return 0f;
-
-        var value = prop.GetValue(entity);
-        return value is float f ? f : Convert.ToSingle(value);
-    }
-
-    private float GetEntityY(object entity)
-    {
-        var prop = entity.GetType().GetProperty("Y");
-        if (prop == null) return 0f;
-
-        var value = prop.GetValue(entity);
-        return value is float f ? f : Convert.ToSingle(value);
-    }
-
-    private int GetEntityId(object entity)
-    {
-        var prop = entity.GetType().GetProperty("Id");
-        if (prop == null) return -1;
-
-        var value = prop.GetValue(entity);
-        return value is int i ? i : Convert.ToInt32(value);
-    }
-
-    private string GetEntityType(object entity)
-    {
-        var prop = entity.GetType().GetProperty("RoleType");
-        return prop != null ? (prop.GetValue(entity)?.ToString() ?? "unknown") : "unknown";
+        return entityA.X < entityB.X + size &&
+               entityA.X + size > entityB.X &&
+               entityA.Y < entityB.Y + size &&
+               entityA.Y + size > entityB.Y;
     }
 }

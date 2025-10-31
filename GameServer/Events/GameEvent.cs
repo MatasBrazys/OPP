@@ -1,4 +1,4 @@
-﻿
+﻿//./GameServer/Events/GameEvent.cs
 namespace GameServer.Events
 {
     public abstract class GameEvent

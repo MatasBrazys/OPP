@@ -1,4 +1,4 @@
-﻿
+﻿//./GameShared/Messages/InputMessage.cs
 namespace GameShared.Messages
 {
     public class InputMessage : GameMessage

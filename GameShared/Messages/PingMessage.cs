@@ -1,4 +1,4 @@
-﻿
+﻿//./GameShared/Messages/PingMessage.cs
 namespace GameShared.Messages
 {
     public class PingMessage : GameMessage

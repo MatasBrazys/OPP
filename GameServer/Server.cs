@@ -1,4 +1,5 @@
-﻿using GameServer.Commands;
+﻿//./GameServer/Server.cs
+using GameServer.Commands;
 using GameServer.Events;
 using GameShared.Messages;
 using GameShared.Strategies;
@@ -13,6 +14,7 @@ using System.Text;
 using System.Text.Json;
 using System.Threading;
 using static GameServer.Events.GameEvent;
+using GameShared;
 
 namespace GameServer
 {
@@ -25,6 +27,7 @@ namespace GameServer
         static object locker = new object();
         private static int nextPlayerId = 1000;
         private readonly object idLock = new object();
+        private static readonly object _cherriesLock = new object();  
         private static HashSet<(int x, int y)> eatenCherries = new HashSet<(int x, int y)>();
 
         static readonly string[] AllRoles = new[] { "hunter", "mage", "defender" };
@@ -111,7 +114,7 @@ namespace GameServer
                 if (result != null)
                 {
 
-                    ApplyTileEnterResult(player, player.X / 128, player.Y / 128, result);
+                    ApplyTileEnterResult(player, player.X /  GameConstants.TILE_SIZE, player.Y /  GameConstants.TILE_SIZE, result);
             }
 
             var players = Game.Instance.WorldFacade.GetAllPlayers();
@@ -134,7 +137,10 @@ namespace GameServer
             if (result.ReplaceWithGrass)
             {
                 Game.Instance.WorldFacade.ReplaceTile(tileX, tileY, new GrassTile(tileX, tileY));
-                eatenCherries.Add((tileX, tileY));
+                lock (_cherriesLock)
+                {
+                    eatenCherries.Add((tileX, tileY));
+                }
 
                 var tileUpdate = new TileUpdateMessage
                 {
@@ -216,11 +222,11 @@ namespace GameServer
             var snapshot = new StateMessage
             {
                 ServerTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
-                Players = Game.Instance.World.GetPlayers()
+                Players = Game.Instance.WorldFacade.GetAllPlayers()
                     .Select(p => new PlayerDto { Id = p.Id, X = p.X, Y = p.Y, Health = p.Health, RoleType = p.RoleType, RoleColor = p.RoleColor.Name })
                     .ToList(),
-                Enemies = Game.Instance.World.GetEnemies()
-                    .Select(e => new EnemyDto { Id = e.Id, EnemyType = e.EnemyType, X = e.X, Y = e.Y, Health = e.Health })
+                Enemies = Game.Instance.WorldFacade.GetAllEnemies()
+                    .Select(e => new EnemyDto { Id = e.Id, EnemyType = e.EnemyType, X = e.X, Y = e.Y, Health = e.Health, MaxHealth=e.MaxHealth })
                     .ToList()
             };
             SendMessage(client, snapshot);

@@ -1,4 +1,5 @@
-﻿using GameShared.Strategies;
+﻿//./GameShared/Builders/MageBuilder.cs
+using GameShared.Strategies;
 using GameShared.Types.Players;
 using System;
 using System.Collections.Generic;

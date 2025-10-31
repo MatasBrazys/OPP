@@ -1,4 +1,4 @@
-﻿
+﻿//./GameShared/Messages/CollisionMessage.cs
 
 namespace GameShared.Messages
 {

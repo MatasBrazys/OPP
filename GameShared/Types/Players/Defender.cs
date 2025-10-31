@@ -1,3 +1,4 @@
+//./GameShared/Types/Players/Defender.cs
 using System.Drawing;
 using GameShared.Strategies;
 

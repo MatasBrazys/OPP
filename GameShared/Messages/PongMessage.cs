@@ -1,5 +1,5 @@
 ﻿
-
+//  ./GameShared/Messages/PongMessage.cs
 namespace GameShared.Messages
 {
     public class PongMessage : GameMessage
