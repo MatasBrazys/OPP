@@ -16,17 +16,7 @@ namespace GameShared.Types.Enemies
         // Simple placeholder update; server will call Update() every tick via World.Update()
         public override void Update()
         {
-            Console.WriteLine($"Enemy {Id} Update called - RoamingAI is null: {RoamingAI == null}");
-            if (RoamingAI != null)
-            {
-                Console.WriteLine($"Enemy {Id} position before AI: ({X}, {Y})");
-                RoamingAI.Update(this);
-                Console.WriteLine($"Enemy {Id} position after AI: ({X}, {Y})");
-            }
-            else
-            {
-                Console.WriteLine($"Enemy {Id} has no RoamingAI!");
-            }
+            RoamingAI?.Update(this);
         }
     }
 }

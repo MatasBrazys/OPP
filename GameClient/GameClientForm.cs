@@ -1,11 +1,10 @@
-using GameClient.Adapters;
-using GameClient.Rendering;
-using GameShared.Commands;
-using GameShared.Messages;
-using GameShared.Types.Map;
 using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
+using GameShared.Messages;
+using GameShared.Types.Map;
+using GameClient.Rendering;
+using GameClient.Adapters;
 
 namespace GameClient
 {
@@ -131,6 +130,7 @@ namespace GameClient
                         case "state":
                             var state = JsonSerializer.Deserialize<StateMessage>(line);
                             if (state == null) break;
+
                             lock (playerRenderers)
                             {
                                 // Update players
@@ -211,32 +211,16 @@ namespace GameClient
 
             UpdateMovement();
 
-            if (moveX != 0 || moveY != 0)
+            var msg = new InputMessage
             {
-                var command = new MoveCommand
-                {
-                    Dx = (int)Math.Round(moveX),
-                    Dy = (int)Math.Round(moveY)
-                };
-                var msg = new CommandMessage
-                {
-                    Command = command
-                };
+                Dx = (int)Math.Round(moveX),
+                Dy = (int)Math.Round(moveY)
+            };
 
-                var json = JsonSerializer.Serialize(msg) + "\n";
-                Console.WriteLine($"CLIENT SENDING: {json}");
-                var data = Encoding.UTF8.GetBytes(json);
+            var json = JsonSerializer.Serialize(msg) + "\n";
+            var data = Encoding.UTF8.GetBytes(json);
 
-                try
-                {
-                    stream.Write(data, 0, data.Length);
-                    Console.WriteLine("Command sent successfully");
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"Failed to send command: {ex.Message}");
-                }
-            }
+            try { stream.Write(data, 0, data.Length); } catch { }
 
             Invalidate();
         }
@@ -283,7 +267,7 @@ namespace GameClient
 
         private void GameClientForm_Paint(object? sender, PaintEventArgs e)
         {
-         
+            // Draw map
             foreach (var renderer in tileRenderers.Values)
                 renderer.Draw(e.Graphics);
 

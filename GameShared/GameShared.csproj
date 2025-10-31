@@ -7,9 +7,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Remove="Observer\**" />
-    <EmbeddedResource Remove="Observer\**" />
-    <None Remove="Observer\**" />
+    <Folder Include="Observer\" />
   </ItemGroup>
 
 </Project>

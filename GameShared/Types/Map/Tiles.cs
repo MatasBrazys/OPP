@@ -19,8 +19,6 @@ public class TreeTile : TileData
     public override bool Passable => false;
 
     public DateTime LastHarvest { get; private set; } = DateTime.MinValue;
-    private DateTime _previousHarvestTime;
-    private bool _stateSaved = false;
 
     public TreeTile(int x, int y) : base(x, y) { }
 
@@ -30,29 +28,6 @@ public class TreeTile : TileData
     public void Harvest()
     {
         LastHarvest = DateTime.UtcNow;
-    }
-    public void SaveState()
-    {
-        _previousHarvestTime = LastHarvest;
-        _stateSaved = true;
-    }
-    public void RestoreState()
-    {
-        if (_stateSaved)
-        {
-            LastHarvest = _previousHarvestTime;
-            _stateSaved = false;
-        }
-    }
-    public bool TryHarvestWithUndo()
-    {
-        if (CanHarvest())
-        {
-            SaveState();
-            Harvest();
-            return true;
-        }
-        return false;
     }
 }
 
