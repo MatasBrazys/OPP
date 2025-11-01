@@ -40,29 +40,39 @@ namespace GameClient.Rendering
             get
             {
                 var elapsedMs = (DateTime.UtcNow - _lastUpdateUtc).TotalMilliseconds;
-                var t = (float)Math.Clamp(elapsedMs / InterpolationMs, 0, 1);
-                return (_prevX + (_targetX - _prevX) * t, _prevY + (_targetY - _prevY) * t);
+                var t = (float)Math.Clamp(elapsedMs / InterpolationMs, 0.0, 1.0);
+                float drawX = _prevX + (_targetX - _prevX) * t;
+                float drawY = _prevY + (_targetY - _prevY) * t;
+                return (drawX + GameConstants.PLAYER_SIZE / 2f, drawY + GameConstants.PLAYER_SIZE / 2f); // return center
             }
         }
 
         public void Draw(Graphics g)
         {
-            var (drawX, drawY) = Position;
+            var elapsedMs = (DateTime.UtcNow - _lastUpdateUtc).TotalMilliseconds;
+            var t = (float)Math.Clamp(elapsedMs / InterpolationMs, 0.0, 1.0);
+            float drawX = _prevX + (_targetX - _prevX) * t;
+            float drawY = _prevY + (_targetY - _prevY) * t;
 
             // Draw sprite
             int playerSize = GameConstants.PLAYER_SIZE;
             g.DrawImage(_sprite, drawX, drawY, playerSize, playerSize);
 
-            // Draw range circle (debug)
-            using var pen = new Pen(Color.Red, 1);
-            g.DrawEllipse(pen, drawX + playerSize / 2 - GameConstants.TILE_SIZE, drawY + playerSize / 2 - GameConstants.TILE_SIZE,
-                          GameConstants.TILE_SIZE * 2, GameConstants.TILE_SIZE * 2);
-
-            // Draw label
+            // Draw ID and role above player
             string label = $"{Role} (ID:{Id})";
             using var font = new Font(SystemFonts.DefaultFont.FontFamily, 8, FontStyle.Bold);
             using var brush = new SolidBrush(Color.Black);
             g.DrawString(label, font, brush, drawX, drawY - 16);
+
+            // If local player, draw melee range circle
+            if (_isLocalPlayer)
+            {
+                using var pen = new Pen(Color.FromArgb(120, Color.Blue), 1.5f);
+                float centerX = drawX + playerSize / 2f;
+                float centerY = drawY + playerSize / 2f;
+                float radius = GameConstants.TILE_SIZE; // in pixels
+                g.DrawEllipse(pen, centerX - radius, centerY - radius, radius * 2f, radius * 2f);
+            }
         }
     }
 }

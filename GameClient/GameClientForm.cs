@@ -156,12 +156,16 @@ namespace GameClient
                             {
                                 float animX = animMsg.AnimX;
                                 float animY = animMsg.AnimY;
-                                float rotation = float.Parse(animMsg.Direction);
-
-                                // Add slash effect at exact pixel position
-                                activeSlashes.Add(new SlashEffect(animX, animY, GameConstants.TILE_SIZE, rotation));
+                                float rotation = 0f;
+                                if (float.TryParse(animMsg.Direction, out var r)) rotation = r;
+                                float radius = animMsg.Radius;
+                                lock (activeSlashes)
+                                {
+                                    activeSlashes.Add(new SlashEffect(animX, animY, radius, rotation));
+                                }
                             }
                             break;
+
 
 
 
@@ -271,14 +275,16 @@ namespace GameClient
             if (myId == 0 || client == null) return;
             if (!playerRenderers.TryGetValue(myId, out var renderer)) return;
 
-            // Compute tile index
-            int tileX = e.X / TileSize;
-            int tileY = e.Y / TileSize;
+            // Send raw pixel click coords to server
+            float clickX = e.X;
+            float clickY = e.Y;
 
-            // Send attack command to server
-            var attackCommand = new AttackCommand(client, myId, renderer.Role, tileX, tileY);
+            var attackCommand = new AttackCommand(client, myId, clickX, clickY, "slash");
             commandInvoker.AddCommand(attackCommand);
+
+            // Do NOT spawn local slash — server will broadcast animation to everyone (including self).
         }
+
 
 
 
@@ -315,14 +321,16 @@ namespace GameClient
                 foreach (var renderer in enemyRenderers.Values) renderer.Draw(e.Graphics);
 
 
-            // Draw slash effects
-            for (int i = activeSlashes.Count - 1; i >= 0; i--)
+            lock (activeSlashes)
             {
-                var slash = activeSlashes[i];
-                slash.Draw(e.Graphics);
-                if (slash.IsFinished)
-                    activeSlashes.RemoveAt(i);
+                for (int i = activeSlashes.Count - 1; i >= 0; i--)
+                {
+                    var s = activeSlashes[i];
+                    s.Draw(e.Graphics);
+                    if (s.IsFinished) activeSlashes.RemoveAt(i);
+                }
             }
+
             using var pen = new Pen(Color.Black, 1);
             for (int x = 0; x <= map.Width; x++)
                 e.Graphics.DrawLine(pen, x * TileSize, 0, x * TileSize, map.Height * TileSize);

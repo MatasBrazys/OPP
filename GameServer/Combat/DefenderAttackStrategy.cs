@@ -10,72 +10,88 @@ namespace GameServer.Combat
     public class DefenderAttackStrategy : IAttackStrategy
     {
         private const int Damage = 10;
-        private const float AttackRangePx = GameConstants.TILE_SIZE; // melee 1 tile
-        private const float MaxVisualDistancePx = 128f;              // max slash distance
+        private static readonly float AttackRangePx = GameConstants.TILE_SIZE; // melee reach in pixels
+        private const float MaxVisualDistancePx = 128f;                        // visual clamp
 
         public void ExecuteAttack(PlayerRole player, AttackMessage msg)
         {
-            if (player == null) return;
+            if (player == null || msg == null) return;
 
-            float playerX = player.X;
-            float playerY = player.Y;
+            // Player pixel center (player.X/Y in your code are already pixel coords)
+            float px = player.X + GameConstants.PLAYER_SIZE / 2f;
+            float py = player.Y + GameConstants.PLAYER_SIZE / 2f;
 
-            // Clicked pixel coordinates
-            float targetX = msg.TargetX * GameConstants.TILE_SIZE + GameConstants.TILE_SIZE / 2f;
-            float targetY = msg.TargetY * GameConstants.TILE_SIZE + GameConstants.TILE_SIZE / 2f;
+            // Click pixel coords (client sent)
+            float clickX = msg.ClickX;
+            float clickY = msg.ClickY;
 
-            float dx = targetX - playerX;
-            float dy = targetY - playerY;
-            float distance = (float)Math.Sqrt(dx * dx + dy * dy);
+            // Vector from player -> click
+            float vx = clickX - px;
+            float vy = clickY - py;
+            float dist = (float)Math.Sqrt(vx * vx + vy * vy);
 
+            // If click is inside visual distance, use exact click; otherwise clamp to max visual distance
             float animX, animY;
-
-            if (distance <= MaxVisualDistancePx)
+            if (dist <= MaxVisualDistancePx && dist > 0f)
             {
-                // If click is inside circle, just use exact click coords
-                animX = targetX;
-                animY = targetY;
+                animX = clickX;
+                animY = clickY;
+            }
+            else if (dist > 0f)
+            {
+                float factor = MaxVisualDistancePx / dist;
+                animX = px + vx * factor;
+                animY = py + vy * factor;
             }
             else
             {
-                // Outside circle → clamp vector to max visual distance
-                float factor = MaxVisualDistancePx / distance;
-                animX = playerX + dx * factor;
-                animY = playerY + dy * factor;
+                // click exactly on player center -> place animation a bit ahead (choose right direction 0°)
+                animX = px + MaxVisualDistancePx * 0.5f;
+                animY = py;
             }
 
-            // Compute angle for animation
-            double angleDeg = (Math.Atan2(animY - playerY, animX - playerX) * 180 / Math.PI + 360) % 360;
+            // Angle for animation (degrees, 0 = right, clockwise)
+            double angleRad = Math.Atan2(animY - py, animX - px); // -pi..pi
+            double angleDeg = (angleRad * 180.0 / Math.PI + 360.0) % 360.0;
 
-            // Broadcast animation
-            Game.Instance.Server.BroadcastToAll(new AttackAnimationMessage
+            // Broadcast animation (use pixel coords)
+            var anim = new AttackAnimationMessage
             {
                 PlayerId = player.Id,
                 AnimX = animX,
                 AnimY = animY,
-                Direction = angleDeg.ToString("F1")
-            });
+                Direction = angleDeg.ToString("F1"),
+                Radius = MaxVisualDistancePx
+            };
+            Game.Instance.Server.BroadcastToAll(anim);
 
-            // --- Damage enemies ---
+            // Damage: check enemies by pixel distance to player's centre (not to anim target).
             var enemies = Game.Instance.WorldFacade.GetAllEnemies().ToList();
             int hits = 0;
-
-            foreach (var enemy in enemies)
+            foreach (var e in enemies)
             {
-                float distToEnemy = (float)Math.Sqrt((enemy.X - playerX) * (enemy.X - playerX) +
-                                                     (enemy.Y - playerY) * (enemy.Y - playerY));
-                if (distToEnemy <= AttackRangePx)
+                // enemy.X/Y are top-left; get center for accurate distance
+                float ex = e.X + GameConstants.ENEMY_SIZE / 2f;
+                float ey = e.Y + GameConstants.ENEMY_SIZE / 2f;
+                float dx = ex - px;
+                float dy = ey - py;
+                float d = (float)Math.Sqrt(dx * dx + dy * dy);
+
+                if (d <= AttackRangePx)
                 {
-                    enemy.Health -= Damage;
+                    e.Health -= Damage;
                     hits++;
-                    Console.WriteLine($"[HIT] Defender {player.Id} hit Enemy {enemy.Id}: -{Damage} HP ({enemy.Health}/{enemy.MaxHealth})");
-                    if (enemy.Health <= 0)
-                        Game.Instance.WorldFacade.RemoveEnemy(enemy);
+                    Console.WriteLine($"[HIT] Defender {player.Id} hit Enemy {e.Id}: -{Damage} HP ({e.Health}/{e.MaxHealth})");
+                    if (e.Health <= 0)
+                    {
+                        Console.WriteLine($"[DEATH] Enemy {e.Id} was slain by Defender {player.Id}");
+                        Game.Instance.WorldFacade.RemoveEnemy(e);
+                    }
                 }
             }
 
             if (hits == 0)
-                Console.WriteLine($"[MISS] Defender {player.Id} slashed at ({animX:F1},{animY:F1}) — no hits.");
+                Console.WriteLine($"[MISS] Defender {player.Id} slashed at ({animX:F1},{animY:F1}) angle={angleDeg:F1}° — no hits.");
         }
     }
 }

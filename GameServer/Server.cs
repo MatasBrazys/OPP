@@ -28,7 +28,7 @@ namespace GameServer
         static object locker = new object();
         private static int nextPlayerId = 1000;
         private readonly object idLock = new object();
-        private static readonly object _cherriesLock = new object();  
+        private static readonly object _cherriesLock = new object();
         private static HashSet<(int x, int y)> eatenCherries = new HashSet<(int x, int y)>();
 
         static readonly string[] AllRoles = new[] { "hunter", "mage", "defender" };
@@ -116,11 +116,11 @@ namespace GameServer
                 if (result != null)
                 {
 
-                    ApplyTileEnterResult(player, player.X /  GameConstants.TILE_SIZE, player.Y /  GameConstants.TILE_SIZE, result);
-            }
+                    ApplyTileEnterResult(player, player.X / GameConstants.TILE_SIZE, player.Y / GameConstants.TILE_SIZE, result);
+                }
 
-            var players = Game.Instance.WorldFacade.GetAllPlayers();
-            _collisionDetector.CheckCollisions(players);
+                var players = Game.Instance.WorldFacade.GetAllPlayers();
+                _collisionDetector.CheckCollisions(players);
             }
 
             BroadcastState();
@@ -228,7 +228,7 @@ namespace GameServer
                     .Select(p => new PlayerDto { Id = p.Id, X = p.X, Y = p.Y, Health = p.Health, RoleType = p.RoleType, RoleColor = p.RoleColor.Name })
                     .ToList(),
                 Enemies = Game.Instance.WorldFacade.GetAllEnemies()
-                    .Select(e => new EnemyDto { Id = e.Id, EnemyType = e.EnemyType, X = e.X, Y = e.Y, Health = e.Health, MaxHealth=e.MaxHealth })
+                    .Select(e => new EnemyDto { Id = e.Id, EnemyType = e.EnemyType, X = e.X, Y = e.Y, Health = e.Health, MaxHealth = e.MaxHealth })
                     .ToList()
             };
             SendMessage(client, snapshot);
@@ -285,7 +285,7 @@ namespace GameServer
             {
                 while (client.Connected && (line = reader.ReadLine()) != null)
                 {
-                   // Console.WriteLine($"Received from client {id}: {line}");
+                    // Console.WriteLine($"Received from client {id}: {line}");
                     var doc = JsonDocument.Parse(line);
                     var type = doc.RootElement.GetProperty("Type").GetString();
                     switch (type)
@@ -296,8 +296,14 @@ namespace GameServer
                             break;
                         case "attack":
                             var attack = JsonSerializer.Deserialize<AttackMessage>(line);
-                            OnReceiveAttack(attack);
+                            if (attack != null)
+                            {
+                                // Ensure we set PlayerId if not present:
+                                if (attack.PlayerId == 0) attack.PlayerId = id;
+                                OnReceiveAttack(attack);
+                            }
                             break;
+
                         case "ping":
                             var ping = JsonSerializer.Deserialize<PingMessage>(line);
                             SendMessage(client, new PongMessage { T = ping.T });
@@ -351,7 +357,7 @@ namespace GameServer
                         .Select(p => new PlayerDto { Id = p.Id, X = p.X, Y = p.Y, Health = p.Health, RoleType = p.RoleType, RoleColor = p.RoleColor.Name })
                         .ToList(),
                     Enemies = Game.Instance.WorldFacade.GetAllEnemies()
-                        .Select(e => new EnemyDto { Id = e.Id, EnemyType = e.EnemyType, X = e.X, Y = e.Y, Health = e.Health, MaxHealth=e.MaxHealth })
+                        .Select(e => new EnemyDto { Id = e.Id, EnemyType = e.EnemyType, X = e.X, Y = e.Y, Health = e.Health, MaxHealth = e.MaxHealth })
                         .ToList()
                 };
             }
@@ -379,10 +385,13 @@ namespace GameServer
             var player = Game.Instance.WorldFacade.GetPlayer(msg.PlayerId);
             if (player == null) return;
 
-            player.AttackStrategy.ExecuteAttack(player, msg);
-            BroadcastState();
+            // The player role should have AttackStrategy assigned (when created).
+            player.AttackStrategy?.ExecuteAttack(player, msg);
+
+            BroadcastState(); // broadcast world changes after attack
         }
-       
+
+
 
     }
 }

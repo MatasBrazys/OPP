@@ -1,12 +1,15 @@
 namespace GameShared.Messages
 {
-    public class AttackMessage : GameMessage
+    public class AttackMessage
     {
+        public string Type { get; set; } = "attack";
         public int PlayerId { get; set; }
-        public string AttackType { get; set; } = string.Empty;
-        public int TargetX { get; set; }
-        public int TargetY { get; set; }
 
-        public AttackMessage() { Type = "attack"; }
+        // Pixel coordinates of the click (client -> server)
+        public float ClickX { get; set; }
+        public float ClickY { get; set; }
+
+        // (Optional) attack subtype (slash, arrow, etc.)
+        public string AttackType { get; set; } = "slash";
     }
 }
