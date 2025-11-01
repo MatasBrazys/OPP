@@ -285,7 +285,7 @@ namespace GameServer
             {
                 while (client.Connected && (line = reader.ReadLine()) != null)
                 {
-                    Console.WriteLine($"Received from client {id}: {line}");
+                   // Console.WriteLine($"Received from client {id}: {line}");
                     var doc = JsonDocument.Parse(line);
                     var type = doc.RootElement.GetProperty("Type").GetString();
                     switch (type)
@@ -342,24 +342,24 @@ namespace GameServer
             lock (locker)
             {
                 var worldPlayers = Game.Instance.WorldFacade.GetAllPlayers();
-                Console.WriteLine($"BroadcastState: World has {worldPlayers.Count} players");
+                //Console.WriteLine($"BroadcastState: World has {worldPlayers.Count} players");
 
                 state = new StateMessage
                 {
                     ServerTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
-                    Players = Game.Instance.World.GetPlayers()
+                    Players = Game.Instance.WorldFacade.GetAllPlayers()
                         .Select(p => new PlayerDto { Id = p.Id, X = p.X, Y = p.Y, Health = p.Health, RoleType = p.RoleType, RoleColor = p.RoleColor.Name })
                         .ToList(),
-                    Enemies = Game.Instance.World.GetEnemies()
+                    Enemies = Game.Instance.WorldFacade.GetAllEnemies()
                         .Select(e => new EnemyDto { Id = e.Id, EnemyType = e.EnemyType, X = e.X, Y = e.Y, Health = e.Health, MaxHealth=e.MaxHealth })
                         .ToList()
                 };
             }
 
-            Console.WriteLine($"Broadcasting state with {state.Players.Count} players to {clients.Count} clients");
+            //Console.WriteLine($"Broadcasting state with {state.Players.Count} players to {clients.Count} clients");
             foreach (var clientId in clients.Keys)
             {
-                Console.WriteLine($"Sending to client {clientId}");
+                //Console.WriteLine($"Sending to client {clientId}");
             }
 
             foreach (var client in clients.Values)
@@ -374,7 +374,7 @@ namespace GameServer
             var bytes = System.Text.Encoding.UTF8.GetBytes(json);
             client.GetStream().Write(bytes, 0, bytes.Length);
         }
-      public void OnReceiveAttack(AttackMessage msg)
+        public void OnReceiveAttack(AttackMessage msg)
         {
             var player = Game.Instance.WorldFacade.GetPlayer(msg.PlayerId);
             if (player == null) return;
@@ -382,6 +382,7 @@ namespace GameServer
             player.AttackStrategy.ExecuteAttack(player, msg);
             BroadcastState();
         }
+       
 
     }
 }

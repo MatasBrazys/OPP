@@ -41,7 +41,7 @@ namespace GameShared.Types.Map
 
         public List<PlayerRole> GetPlayers()
         {
-            Console.WriteLine($"World.GetPlayers: world={GetHashCode()}, count={Entities.OfType<PlayerRole>().Count()}"); 
+            //Console.WriteLine($"World.GetPlayers: world={GetHashCode()}, count={Entities.OfType<PlayerRole>().Count()}"); 
             return Entities.OfType<PlayerRole>().ToList();
         }
 

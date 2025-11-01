@@ -17,7 +17,7 @@ namespace GameClient
         private Thread? receiveThread;
         private int myId;
         private readonly Dictionary<int, PlayerRenderer> playerRenderers = new();
-        private readonly Dictionary<int, EnemyRenderer> enemyRenderers = new(); 
+        private readonly Dictionary<int, EnemyRenderer> enemyRenderers = new();
         private readonly HashSet<Keys> pressedKeys = new();
         private float moveX, moveY;
         private const float MoveSpeed = 1f;
@@ -40,7 +40,7 @@ namespace GameClient
         private readonly Image cherrySprite = Image.FromFile("../assets/cherry.jpg");
 
         // Enemy sprites
-        private readonly Image slimeSprite = Image.FromFile("../assets/slime.png"); 
+        private readonly Image slimeSprite = Image.FromFile("../assets/slime.png");
 
         private readonly List<SlashEffect> activeSlashes = new();
 
@@ -55,7 +55,7 @@ namespace GameClient
             MouseClick += GameClientForm_MouseClick;
             Paint += GameClientForm_Paint;
             Load += GameClientForm_Load;
-            
+
             gameTimer = new System.Windows.Forms.Timer { Interval = 16 };
             gameTimer.Tick += GameLoop;
             gameTimer.Start();
@@ -150,6 +150,21 @@ namespace GameClient
                             var collision = JsonSerializer.Deserialize<CollisionMessage>(line);
                             Console.WriteLine($"Collision at: {collision.X}, {collision.Y}");
                             break;
+                        case "attack_animation":
+                            var animMsg = JsonSerializer.Deserialize<AttackAnimationMessage>(line);
+                            if (animMsg != null)
+                            {
+                                float animX = animMsg.AnimX;
+                                float animY = animMsg.AnimY;
+                                float rotation = float.Parse(animMsg.Direction);
+
+                                // Add slash effect at exact pixel position
+                                activeSlashes.Add(new SlashEffect(animX, animY, GameConstants.TILE_SIZE, rotation));
+                            }
+                            break;
+
+
+
 
                         case "goodbye":
                             MessageBox.Show("Server closed connection.");
@@ -254,23 +269,20 @@ namespace GameClient
         private void GameClientForm_MouseClick(object sender, MouseEventArgs e)
         {
             if (myId == 0 || client == null) return;
-
-            int targetX = e.X / TileSize;
-            int targetY = e.Y / TileSize;
-
             if (!playerRenderers.TryGetValue(myId, out var renderer)) return;
 
-            var attackCommand = new AttackCommand(client, myId, renderer.Role, targetX, targetY);
+            // Compute tile index
+            int tileX = e.X / TileSize;
+            int tileY = e.Y / TileSize;
+
+            // Send attack command to server
+            var attackCommand = new AttackCommand(client, myId, renderer.Role, tileX, tileY);
             commandInvoker.AddCommand(attackCommand);
-            SpawnSlashAnimation(targetX, targetY);
         }
 
-        private void SpawnSlashAnimation(int tileX, int tileY)
-        {
-            float centerX = tileX * TileSize + TileSize / 2;
-            float centerY = tileY * TileSize + TileSize / 2;
-            activeSlashes.Add(new SlashEffect(centerX, centerY, TileSize));
-        }
+
+
+
 
         private void UpdateTile(int x, int y, string tileType)
         {
@@ -301,8 +313,8 @@ namespace GameClient
 
             lock (enemyRenderers)
                 foreach (var renderer in enemyRenderers.Values) renderer.Draw(e.Graphics);
-            
-            
+
+
             // Draw slash effects
             for (int i = activeSlashes.Count - 1; i >= 0; i--)
             {

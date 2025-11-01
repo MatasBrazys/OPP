@@ -1,4 +1,3 @@
-// GameServer/Combat/DefenderAttackStrategy.cs
 using System;
 using System.Linq;
 using GameShared;
@@ -10,78 +9,73 @@ namespace GameServer.Combat
 {
     public class DefenderAttackStrategy : IAttackStrategy
     {
-        // Range measured in tiles (1 = adjacent tiles + current tile)
-        private const int RangeInTiles = 1;
         private const int Damage = 10;
+        private const float AttackRangePx = GameConstants.TILE_SIZE; // melee 1 tile
+        private const float MaxVisualDistancePx = 128f;              // max slash distance
 
         public void ExecuteAttack(PlayerRole player, AttackMessage msg)
         {
-            if (player == null)
+            if (player == null) return;
+
+            float playerX = player.X;
+            float playerY = player.Y;
+
+            // Clicked pixel coordinates
+            float targetX = msg.TargetX * GameConstants.TILE_SIZE + GameConstants.TILE_SIZE / 2f;
+            float targetY = msg.TargetY * GameConstants.TILE_SIZE + GameConstants.TILE_SIZE / 2f;
+
+            float dx = targetX - playerX;
+            float dy = targetY - playerY;
+            float distance = (float)Math.Sqrt(dx * dx + dy * dy);
+
+            float animX, animY;
+
+            if (distance <= MaxVisualDistancePx)
             {
-                Console.WriteLine("[DefenderAttack] No player provided.");
-                return;
+                // If click is inside circle, just use exact click coords
+                animX = targetX;
+                animY = targetY;
+            }
+            else
+            {
+                // Outside circle → clamp vector to max visual distance
+                float factor = MaxVisualDistancePx / distance;
+                animX = playerX + dx * factor;
+                animY = playerY + dy * factor;
             }
 
-            // Convert player position into tile coords
-            int playerTileX = player.X / GameConstants.TILE_SIZE;
-            int playerTileY = player.Y / GameConstants.TILE_SIZE;
+            // Compute angle for animation
+            double angleDeg = (Math.Atan2(animY - playerY, animX - playerX) * 180 / Math.PI + 360) % 360;
 
-            // msg.TargetX/TargetY are expected to already be tile indices from the client
-            int targetTileX = msg.TargetX;
-            int targetTileY = msg.TargetY;
-
-            // Check whether the clicked tile is within melee reach of the player
-            int dxPlayerToTarget = Math.Abs(playerTileX - targetTileX);
-            int dyPlayerToTarget = Math.Abs(playerTileY - targetTileY);
-            int playerToTargetChebyshev = Math.Max(dxPlayerToTarget, dyPlayerToTarget);
-
-            if (playerToTargetChebyshev > RangeInTiles)
+            // Broadcast animation
+            Game.Instance.Server.BroadcastToAll(new AttackAnimationMessage
             {
-                // Target is too far — slash cannot reach that tile
-                Console.WriteLine($"[DEFENDER] Player {player.Id} tried to slash at ({targetTileX},{targetTileY}) but it was out of range (player at {playerTileX},{playerTileY}).");
-                return;
-            }
+                PlayerId = player.Id,
+                AnimX = animX,
+                AnimY = animY,
+                Direction = angleDeg.ToString("F1")
+            });
 
-            // Now apply damage to enemies that are within RangeInTiles of the player's tile
-            var enemies = Game.Instance.WorldFacade.GetAllEnemies();
-
+            // --- Damage enemies ---
+            var enemies = Game.Instance.WorldFacade.GetAllEnemies().ToList();
             int hits = 0;
-            // Iterate a copy to allow safe removal inside loop (facade will remove from world)
-            var enemiesList = enemies.ToList();
 
-            foreach (var enemy in enemiesList)
+            foreach (var enemy in enemies)
             {
-                int enemyTileX = enemy.X / GameConstants.TILE_SIZE;
-                int enemyTileY = enemy.Y / GameConstants.TILE_SIZE;
-
-                int dx = Math.Abs(enemyTileX - playerTileX);
-                int dy = Math.Abs(enemyTileY - playerTileY);
-                int cheb = Math.Max(dx, dy);
-
-                if (cheb <= RangeInTiles)
+                float distToEnemy = (float)Math.Sqrt((enemy.X - playerX) * (enemy.X - playerX) +
+                                                     (enemy.Y - playerY) * (enemy.Y - playerY));
+                if (distToEnemy <= AttackRangePx)
                 {
-                    // Enemy is within melee range of the player — hit it
                     enemy.Health -= Damage;
                     hits++;
-
-                    Console.WriteLine($"[HIT] Defender {player.Id} hit Enemy {enemy.Id}: -{Damage} HP -> {enemy.Health}/{enemy.MaxHealth}");
-
+                    Console.WriteLine($"[HIT] Defender {player.Id} hit Enemy {enemy.Id}: -{Damage} HP ({enemy.Health}/{enemy.MaxHealth})");
                     if (enemy.Health <= 0)
-                    {
-                        Console.WriteLine($"[DEATH] Enemy {enemy.Id} died (killed by player {player.Id}).");
                         Game.Instance.WorldFacade.RemoveEnemy(enemy);
-                    }
                 }
             }
 
             if (hits == 0)
-            {
-                Console.WriteLine($"[SLASH] Defender {player.Id} slashed at ({targetTileX},{targetTileY}) and hit air.");
-            }
-
-            // IMPORTANT: State broadcasting should be done by the caller (server) after this method,
-            // so that all clients receive the updated state. If you want immediate broadcast here,
-            // you can call the server's BroadcastState method — but prefer the caller to control that.
+                Console.WriteLine($"[MISS] Defender {player.Id} slashed at ({animX:F1},{animY:F1}) — no hits.");
         }
     }
 }
