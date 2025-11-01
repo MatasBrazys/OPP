@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using GameShared;
 using GameShared.Interfaces;
@@ -10,13 +11,27 @@ namespace GameServer.Combat
     public class DefenderAttackStrategy : IAttackStrategy
     {
         private const int Damage = 10;
-        private static readonly float AttackRangePx = GameConstants.TILE_SIZE; // melee reach in pixels
-        private const float MaxVisualDistancePx = 128f;                        // visual clamp
-        private const float SlashAngleDeg = 90f;                                // 90° cone
+        private static readonly float AttackRangePx = GameConstants.TILE_SIZE; 
+        private const float MaxVisualDistancePx = 128f;                        
+        private const float SlashAngleDeg = 90f;                                
+        private static readonly TimeSpan Cooldown = TimeSpan.FromMilliseconds(600); // 0.6s cooldown
+
+        // Store last attack times per player
+        private readonly Dictionary<int, DateTime> lastAttackTimes = new();
 
         public void ExecuteAttack(PlayerRole player, AttackMessage msg)
         {
             if (player == null || msg == null) return;
+
+            if (lastAttackTimes.TryGetValue(player.Id, out var last) && 
+                (DateTime.UtcNow - last) < Cooldown)
+            {
+                // Still in cooldown, ignore attack
+                return;
+            }
+
+            // Register attack time
+            lastAttackTimes[player.Id] = DateTime.UtcNow;
 
             // Player center (pixels)
             float px = player.X + GameConstants.PLAYER_SIZE / 2f;
@@ -50,12 +65,11 @@ namespace GameServer.Combat
                 animY = py;
             }
 
-            // Angle of slash (degrees, 0 = right)
             double playerAngle = Math.Atan2(animY - py, animX - px) * 180.0 / Math.PI;
 
-            // Broadcast slash animation
             var anim = new AttackAnimationMessage
             {
+                AttackType= "slash",
                 PlayerId = player.Id,
                 AnimX = animX,
                 AnimY = animY,
@@ -72,7 +86,6 @@ namespace GameServer.Combat
             {
                 float ex = e.X + GameConstants.ENEMY_SIZE / 2f;
                 float ey = e.Y + GameConstants.ENEMY_SIZE / 2f;
-
                 float dx = ex - px;
                 float dy = ey - py;
                 float distanceToEnemy = (float)Math.Sqrt(dx * dx + dy * dy);
@@ -85,7 +98,6 @@ namespace GameServer.Combat
 
                 if (diff <= SlashAngleDeg / 2f)
                 {
-                    // Hit enemy
                     e.Health -= Damage;
                     hits++;
                     Console.WriteLine($"[HIT] Defender {player.Id} hit Enemy {e.Id}: -{Damage} HP ({e.Health}/{e.MaxHealth})");
@@ -104,8 +116,7 @@ namespace GameServer.Combat
 
         private static double NormalizeAngle(double angle)
         {
-            // Normalize angle to 0..180° for comparison
-            angle = angle % 360.0;
+            angle %= 360.0;
             if (angle < 0) angle += 360.0;
             return angle > 180.0 ? 360.0 - angle : angle;
         }

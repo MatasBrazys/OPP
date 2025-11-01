@@ -3,6 +3,7 @@ namespace GameShared.Messages
     public class AttackAnimationMessage
     {
         public string Type { get; set; } = "attack_animation";
+        public string AttackType { get; set; } = "slash";
 
         // Player who created it
         public int PlayerId { get; set; }

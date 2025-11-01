@@ -14,6 +14,13 @@ namespace GameShared.Types.Players
         public IAttackStrategy AttackStrategy { get; set; }
 
         public string AttackType { get; internal set; }
+        //cia reik abstract factory sudet, siuo metu as tiesiogiai facade sudedu situs, reiks settint juos i internal veliau. 
+        //important!!!!!
+        public float AttackRange { get; set; }
+        
+        //public float AttackCooldown { get; set; }
+       // public float AttackDamage { get; set; }
+
         public override string EntityType => RoleType;
        
 

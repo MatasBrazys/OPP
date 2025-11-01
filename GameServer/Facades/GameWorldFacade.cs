@@ -30,10 +30,17 @@ namespace GameServer.Facades
         {
             var (x, y) = FindPassableTile();
             var player = _playerFactory.CreatePlayer(roleType, id, x, y);
-            if (roleType == "defender" )
-                {
-                    player.AttackStrategy = new DefenderAttackStrategy();
-                }
+            if (roleType == "defender")
+            {
+                player.AttackStrategy = new DefenderAttackStrategy();
+
+            }
+            if (roleType == "mage")
+            {
+
+                player.AttackStrategy = new MageAttackStrategy();
+                
+            }    
             _world.AddEntity(player);
             return player;
         }

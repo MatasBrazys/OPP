@@ -43,6 +43,8 @@ namespace GameClient
         private readonly Image slimeSprite = Image.FromFile("../assets/slime.png");
 
         private readonly List<SlashEffect> activeSlashes = new();
+        private readonly List<MageFireballEffect> activeFireballs = new();
+
 
 
         public GameClientForm()
@@ -159,12 +161,25 @@ namespace GameClient
                                 float rotation = 0f;
                                 if (float.TryParse(animMsg.Direction, out var r)) rotation = r;
                                 float radius = animMsg.Radius;
-                                lock (activeSlashes)
+
+                                // Determine effect type based on attack type or player role
+                                if (animMsg.AttackType == "slash") // Defender / melee
                                 {
-                                    activeSlashes.Add(new SlashEffect(animX, animY, radius, rotation));
+                                    lock (activeSlashes)
+                                    {
+                                        activeSlashes.Add(new SlashEffect(animX, animY, radius, rotation));
+                                    }
+                                }
+                                else if (animMsg.AttackType == "mage") // Mage / ranged
+                                {
+                                    lock (activeFireballs)
+                                    {
+                                        activeFireballs.Add(new MageFireballEffect(animX, animY));
+                                    }
                                 }
                             }
                             break;
+
 
 
 
@@ -330,6 +345,14 @@ namespace GameClient
                     if (s.IsFinished) activeSlashes.RemoveAt(i);
                 }
             }
+            for (int i = activeFireballs.Count - 1; i >= 0; i--)
+            {
+                var fb = activeFireballs[i];
+                fb.Draw(e.Graphics);
+                if (fb.IsFinished)
+                    activeFireballs.RemoveAt(i);
+            }
+
 
             using var pen = new Pen(Color.Black, 1);
             for (int x = 0; x <= map.Width; x++)
