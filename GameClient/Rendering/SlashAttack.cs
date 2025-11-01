@@ -1,5 +1,6 @@
 using System;
 using System.Drawing;
+using System.Drawing.Imaging;
 
 namespace GameClient.Rendering
 {
@@ -8,9 +9,11 @@ namespace GameClient.Rendering
         public float X { get; }
         public float Y { get; }
         public float Radius { get; }
-        public float RotationDeg { get; } // degrees
+        public float RotationDeg { get; }
         public DateTime Start { get; }
         public const float DurationMs = 220f;
+
+        private static readonly Image SlashSprite = Image.FromFile("../assets/slash.png");
 
         public bool IsFinished => (DateTime.UtcNow - Start).TotalMilliseconds > DurationMs;
 
@@ -25,20 +28,28 @@ namespace GameClient.Rendering
 
         public void Draw(Graphics g)
         {
-            float elapsed = (float)(DateTime.UtcNow - Start).TotalMilliseconds;
-            float t = Math.Clamp(elapsed / DurationMs, 0f, 1f);
-            int alpha = (int)((1f - t) * 220);
-            float length = Math.Min(Radius, 128f) * (1f + 0.25f * t);
-            float width = GameShared.GameConstants.PLAYER_SIZE * (1f - 0.4f * t) + 8f;
+            float progress = Math.Clamp((float)(DateTime.UtcNow - Start).TotalMilliseconds / DurationMs, 0f, 1f);
+            int alpha = (int)((1f - progress) * 220);
+            float scale = 2f + 0.25f * progress;
 
-            using var brush = new SolidBrush(Color.FromArgb(alpha, Color.OrangeRed));
+            int drawWidth = (int)(120f * scale);   // length along slash
+            int drawHeight = (int)(54f * scale);   // thickness
+
+            using var attr = new ImageAttributes();
+            attr.SetColorMatrix(new ColorMatrix { Matrix33 = alpha / 255f });
+
             var state = g.Save();
             g.TranslateTransform(X, Y);
             g.RotateTransform(RotationDeg);
 
-            // Draw elliptical slash oriented along X axis (rightwards)
-            var rect = new RectangleF(-length / 2f, -width / 2f, length, width);
-            g.FillEllipse(brush, rect);
+            // Draw sprite centered on X/Y
+            g.DrawImage(
+                SlashSprite,
+                new Rectangle(-drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight),
+                0, 0, SlashSprite.Width, SlashSprite.Height,
+                GraphicsUnit.Pixel,
+                attr
+            );
 
             g.Restore(state);
         }
