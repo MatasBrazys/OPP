@@ -70,9 +70,9 @@ public sealed class TileEntryLoggerDecorator : TileLoggingDecorator
 
     public override TileEnterResult OnEnter(PlayerRole player)
     {
-        //LogMessage($"Entering tile {Inner.X}x{Inner.Y} by {DescribePlayer(player)}");
+        LogMessage($"Entering tile {Inner.X}x{Inner.Y} by {DescribePlayer(player)}");
         var result = base.OnEnter(player);
-        //LogMessage($"Completed enter for {DescribePlayer(player)}");
+        LogMessage($"Completed enter for {DescribePlayer(player)}");
         return result;
     }
 }
@@ -88,21 +88,21 @@ public sealed class TileStrategyLoggerDecorator : TileLoggingDecorator
         var result = base.OnEnter(player);
         if (result.StrategyOverride != null)
         {
-            //LogMessage($"Applied strategy {result.StrategyOverride.GetType().Name} for {DescribePlayer(player)}");
+            LogMessage($"Applied strategy {result.StrategyOverride.GetType().Name} for {DescribePlayer(player)}");
         }
         else
         {
-            //LogMessage($"No strategy override for {DescribePlayer(player)}");
+            LogMessage($"No strategy override for {DescribePlayer(player)}");
         }
 
         if (result.SpawnClone)
         {
-            //LogMessage("Tile requested spawn clone");
+            LogMessage("Tile requested spawn clone");
         }
 
         if (result.ReplaceWithGrass)
         {
-            //LogMessage("Tile requested replace with grass");
+            LogMessage("Tile requested replace with grass");
         }
 
         return result;
@@ -120,7 +120,7 @@ public sealed class TileMetricsDecorator : TileLoggingDecorator
     public override TileEnterResult OnEnter(PlayerRole player)
     {
         var count = Interlocked.Increment(ref _enterCount);
-       // LogMessage($"Total entries so far: {count}");
+       LogMessage($"Total entries so far: {count}");
         return base.OnEnter(player);
     }
 }

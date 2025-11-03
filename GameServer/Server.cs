@@ -34,7 +34,7 @@ namespace GameServer
         static readonly string[] AllRoles = new[] {  "mage", "defender" };//"hunter"
         private static readonly NormalMovement DefaultMovementStrategy = new();
         // Logging decorator switch
-        private const bool EnableTileLogging = true;
+        private const bool EnableTileLogging = false;
 
         private CollisionDetector _collisionDetector;
         private List<CommandHandler> _commandHandlers;
