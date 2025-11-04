@@ -1,19 +1,17 @@
-// ./GameClient/GameClientForm.cs
 using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Text.Json;
-using System.Threading;
 using System.Windows.Forms;
 using GameClient.Input;
 using GameClient.Managers;
 using GameClient.Networking;
 using GameClient.Rendering;
-using GameClient.Adapters;
 using GameShared.Messages;
 using GameShared.Types.Map;
 using GameShared.Types.DTOs;
 using GameShared;
+using GameClient.Theming;
 
 namespace GameClient
 {
@@ -33,6 +31,16 @@ namespace GameClient
 
         private const int TileSize = GameConstants.TILE_SIZE;
 
+        // Theme fields
+        private readonly IGameThemeFactory _summerFactory;
+        private readonly IGameThemeFactory _winterFactory;
+        private ThemeMode _currentTheme;
+        private ITileSpriteSet _tileSpriteSet;
+        private IPlayerSpriteSet _playerSpriteSet;
+        private IEnemySpriteSet _enemySpriteSet;
+        private IUiPalette _uiPalette;
+        private Image _defaultEnemySprite;
+
         public GameClientForm()
         {
             InitializeComponentMinimal();
@@ -43,7 +51,14 @@ namespace GameClient
 
             SpriteManager.RegisterDefaultSprites();
 
-            _entityManager = new EntityManager(SpriteRegistry.GetSprite("Slime"));
+            _summerFactory = new SummerGameThemeFactory();
+            _winterFactory = new WinterGameThemeFactory();
+
+            // Apply default theme (Winter)
+            ApplyTheme(ThemeMode.Winter, refreshSprites: false);
+
+            _entityManager = new EntityManager(_defaultEnemySprite);
+
             _tileManager = new TileManager(TileSize);
             _animManager = new AnimationManager();
             _inputHandler = new InputHandler();
@@ -54,6 +69,7 @@ namespace GameClient
             _gameTimer.Start();
 
             // input events
+            KeyDown += GameClientForm_KeyDown;
             KeyDown += _inputHandler.KeyDown;
             KeyUp += _inputHandler.KeyUp;
             MouseClick += OnMouseClick;
@@ -61,7 +77,6 @@ namespace GameClient
 
         private void InitializeComponentMinimal()
         {
-            // keep same DoubleBuffer and style from original
             this.DoubleBuffered = true;
             this.SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint | ControlStyles.OptimizedDoubleBuffer, true);
             Load += GameClientForm_Load;
@@ -70,13 +85,11 @@ namespace GameClient
 
         private void GameClientForm_Load(object? sender, EventArgs e)
         {
-            // Connect after form load
             _connection.Connect();
         }
 
         private void HandleRawMessage(string raw)
         {
-            // Single central place to parse messages and route to managers
             try
             {
                 using var doc = JsonDocument.Parse(raw);
@@ -106,7 +119,6 @@ namespace GameClient
                                 _map.LoadFromDimensions(mapState.Width, mapState.Height);
                                 foreach (var t in mapState.Tiles)
                                 {
-                                    // Build TileData instances using same switch logic as before
                                     UpdateTile(t.X, t.Y, t.TileType);
                                 }
                                 Invalidate();
@@ -122,6 +134,7 @@ namespace GameClient
                             {
                                 _entityManager.UpdatePlayers(state.Players, _myId);
                                 _entityManager.UpdateEnemies(state.Enemies);
+                                RefreshPlayerRenderers();
                                 Invalidate();
                             }));
                         }
@@ -131,7 +144,6 @@ namespace GameClient
                         var anim = JsonSerializer.Deserialize<AttackAnimationMessage>(raw);
                         if (anim != null)
                         {
-                            // If arrow, we need start position on client (player renderer center)
                             if (anim.AttackType == "arrow" && anim.PlayerId != 0)
                             {
                                 var pr = _entityManager.GetPlayerRenderer(anim.PlayerId);
@@ -156,7 +168,6 @@ namespace GameClient
                         break;
 
                     case "collision":
-                        // handle if needed
                         break;
 
                     case "goodbye":
@@ -196,9 +207,7 @@ namespace GameClient
 
             _inputHandler.UpdateMovement();
 
-            // create walk command and enqueue
-            var walkCommand = new WalkCommand( _connection, _myId, _inputHandler.MoveX, _inputHandler.MoveY);
-          
+            var walkCommand = new WalkCommand(_connection, _myId, _inputHandler.MoveX, _inputHandler.MoveY);
             _commandInvoker.AddCommand(walkCommand);
             _commandInvoker.ExecuteCommands();
 
@@ -211,29 +220,71 @@ namespace GameClient
             var pr = _entityManager.GetPlayerRenderer(_myId);
             if (pr == null) return;
 
-            // send raw click coords and attack type
-            var attackCommand = new AttackCommand(_connection, _myId, e.X, e.Y, "slash"); // adapt signatures if needed
+            var attackCommand = new AttackCommand(_connection, _myId, e.X, e.Y, "slash");
             _commandInvoker.AddCommand(attackCommand);
-            // do not spawn local animation; server will broadcast
         }
 
         private void GameClientForm_Paint(object? sender, PaintEventArgs e)
         {
-            // draw tiles
             _tileManager.DrawAll(e.Graphics);
-
-            // draw entities
             _entityManager.DrawAll(e.Graphics);
-
-            // draw animations
             _animManager.DrawAll(e.Graphics);
 
-            // draw grid
             using var pen = new Pen(Color.Black, 1);
             for (int x = 0; x <= _map.Width; x++)
                 e.Graphics.DrawLine(pen, x * TileSize, 0, x * TileSize, _map.Height * TileSize);
             for (int y = 0; y <= _map.Height; y++)
                 e.Graphics.DrawLine(pen, 0, y * TileSize, _map.Width * TileSize, y * TileSize);
+        }
+
+        private void ApplyTheme(ThemeMode mode, bool refreshSprites)
+        {
+            _currentTheme = mode;
+            var factory = mode == ThemeMode.Summer ? _summerFactory : _winterFactory;
+
+            _tileSpriteSet = factory.CreateTileSpriteSet();
+            _playerSpriteSet = factory.CreatePlayerSpriteSet();
+            _enemySpriteSet = factory.CreateEnemySpriteSet();
+            _uiPalette = factory.CreateUiPalette();
+
+            _defaultEnemySprite = _enemySpriteSet.Sprites.TryGetValue("Slime", out var slime)
+                ? slime
+                : ThemeSpriteLoader.LoadEnemySprite("../assets/slime.png", Color.DarkSeaGreen);
+
+            if (_entityManager != null)
+                _entityManager.SetDefaultEnemySprite(_defaultEnemySprite);
+
+            if (!refreshSprites) return;
+
+            SpriteRegistry.Clear();
+            RegisterThemeSprites();
+            RefreshPlayerRenderers();
+            Invalidate();
+        }
+
+        private void RegisterThemeSprites()
+        {
+            foreach (var kvp in _tileSpriteSet.Sprites) SpriteRegistry.Register(kvp.Key, kvp.Value);
+            foreach (var kvp in _playerSpriteSet.Sprites) SpriteRegistry.Register(kvp.Key, kvp.Value);
+            foreach (var kvp in _enemySpriteSet.Sprites) SpriteRegistry.Register(kvp.Key, kvp.Value);
+        }
+
+        private void RefreshPlayerRenderers()
+        {
+            foreach (var pr in _entityManager.GetAllPlayerRenderers())
+            {
+                var sprite = SpriteRegistry.GetSprite(pr.Role);
+                pr.UpdateTheme(sprite, _uiPalette.PlayerLabelColor, _uiPalette.LocalPlayerRingColor);
+            }
+        }
+
+        private void GameClientForm_KeyDown(object? sender, KeyEventArgs e)
+        {
+            if (e.KeyCode == Keys.F5)
+            {
+                var nextMode = _currentTheme == ThemeMode.Summer ? ThemeMode.Winter : ThemeMode.Summer;
+                ApplyTheme(nextMode, refreshSprites: true);
+            }
         }
 
         protected override void Dispose(bool disposing)

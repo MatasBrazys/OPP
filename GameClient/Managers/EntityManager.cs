@@ -1,4 +1,3 @@
-// ./GameClient/Managers/EntityManager.cs
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
@@ -11,11 +10,16 @@ namespace GameClient.Managers
     {
         private readonly Dictionary<int, PlayerRenderer> _players = new();
         private readonly Dictionary<int, EnemyRenderer> _enemies = new();
-        private readonly Image _defaultEnemySprite;
+        private Image _defaultEnemySprite;
 
         public EntityManager(Image defaultEnemySprite)
         {
             _defaultEnemySprite = defaultEnemySprite;
+        }
+
+        public void SetDefaultEnemySprite(Image sprite)
+        {
+            _defaultEnemySprite = sprite;
         }
 
         public void UpdatePlayers(List<PlayerDto> players, int localPlayerId)
@@ -27,8 +31,8 @@ namespace GameClient.Managers
                     if (!_players.TryGetValue(ps.Id, out var existing))
                     {
                         var sprite = SpriteRegistry.GetSprite(ps.RoleType);
-                        var isLocal = ps.Id == localPlayerId; // mark local player
-                        var renderer = new PlayerRenderer(ps.Id, ps.RoleType, ps.X, ps.Y, sprite, isLocal);
+                        var isLocal = ps.Id == localPlayerId;
+                        var renderer = new PlayerRenderer(ps.Id, ps.RoleType, ps.X, ps.Y, sprite, isLocal, Color.Black, Color.Blue);
                         _players[ps.Id] = renderer;
                     }
                     else
@@ -37,14 +41,12 @@ namespace GameClient.Managers
                     }
                 }
 
-                // remove missing players
                 var serverIds = players.Select(p => p.Id).ToHashSet();
                 var toRemove = _players.Keys.Where(k => !serverIds.Contains(k)).ToList();
                 foreach (var id in toRemove) _players.Remove(id);
             }
         }
 
-        
         public void UpdateEnemies(List<EnemyDto> enemies)
         {
             lock (_enemies)
@@ -90,6 +92,14 @@ namespace GameClient.Managers
             {
                 _players.TryGetValue(id, out var r);
                 return r;
+            }
+        }
+
+        public List<PlayerRenderer> GetAllPlayerRenderers()
+        {
+            lock (_players)
+            {
+                return _players.Values.ToList();
             }
         }
     }
