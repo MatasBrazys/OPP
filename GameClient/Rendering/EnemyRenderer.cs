@@ -102,9 +102,6 @@ namespace GameClient.Rendering
             _renderer.DrawText(g, hpText, font, Color.Black, textX, textY);
         }
 
-        public void TakeDamage(int amount)
-        {
-            CurrentHP = Math.Max(0, CurrentHP - amount);
-        }
+        
     }
 }
