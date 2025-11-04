@@ -99,6 +99,8 @@ namespace GameClient.Rendering
                 }
 
                 using var pen = new Pen(_localPlayerRingColor, 1.5f);
+                float centerX = drawX + playerSize / 2f;
+                float centerY = drawY + playerSize / 2f;
                 g.DrawEllipse(pen, centerX - radius, centerY - radius, radius * 2f, radius * 2f);
             }
 
