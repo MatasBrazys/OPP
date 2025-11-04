@@ -11,13 +11,11 @@ namespace GameClient.Rendering
         private float _prevX, _prevY;
         private float _targetX, _targetY;
         private DateTime _lastUpdateUtc;
-        private Image _sprite;
+        private readonly Image _sprite;
         private readonly bool _isLocalPlayer;
-        private Color _labelColor;
-        private Color _localPlayerRingColor;
         private const double InterpolationMs = 100.0;
 
-        public PlayerRenderer(int id, string role, int startX, int startY, Image sprite, bool isLocalPlayer, Color labelColor, Color localPlayerRingColor)
+        public PlayerRenderer(int id, string role, int startX, int startY, Image sprite, bool isLocalPlayer)
         {
             Id = id;
             Role = role;
@@ -26,15 +24,6 @@ namespace GameClient.Rendering
             _lastUpdateUtc = DateTime.UtcNow;
             _sprite = sprite;
             _isLocalPlayer = isLocalPlayer;
-            _labelColor = labelColor;
-            _localPlayerRingColor = localPlayerRingColor;
-        }
-
-        public void UpdateTheme(Image sprite, Color labelColor, Color localPlayerRingColor)
-        {
-            _sprite = sprite;
-            _labelColor = labelColor;
-            _localPlayerRingColor = localPlayerRingColor;
         }
 
         public void SetTarget(int x, int y)
@@ -71,7 +60,7 @@ namespace GameClient.Rendering
             // Draw ID and role
             string label = $"{Role} (ID:{Id})";
             using var font = new Font(SystemFonts.DefaultFont.FontFamily, 8, FontStyle.Bold);
-            using var brush = new SolidBrush(_labelColor);
+            using var brush = new SolidBrush(Color.Black);
             g.DrawString(label, font, brush, drawX, drawY - 16);
 
             // Inside Draw()
@@ -98,9 +87,7 @@ namespace GameClient.Rendering
                         break;
                 }
 
-                using var pen = new Pen(_localPlayerRingColor, 1.5f);
-                float centerX = drawX + playerSize / 2f;
-                float centerY = drawY + playerSize / 2f;
+                using var pen = new Pen(Color.FromArgb(120, color), 1.5f);
                 g.DrawEllipse(pen, centerX - radius, centerY - radius, radius * 2f, radius * 2f);
             }
 
