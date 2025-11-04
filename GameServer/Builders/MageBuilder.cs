@@ -1,72 +1,66 @@
-﻿//./GameShared/Builders/DefenderBuilder.cs
+﻿//./GameShared/Builders/MageBuilder.cs
 using GameShared.Strategies;
 using GameShared.Types.Players;
-using System;
-using System.Collections.Generic;
-using System.Diagnostics.Metrics;
 using System.Drawing;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using GameServer.Combat;
 
-namespace GameShared.Builders
+namespace GameServer.Builders
 {
-    public class DefenderBuilder : IPlayerBuilder
+    public class MageBuilder : IPlayerBuilder
     {
-        private Defender _defender;
-
+        private Mage _mage;
 
         public IPlayerBuilder Start()
         {
-            _defender = new Defender();
+            _mage = new Mage();
             return this;
         }
 
         public IPlayerBuilder SetId(int id)
         {
-            _defender.Id = id;
+            _mage.Id = id;
             return this;
         }
 
         public IPlayerBuilder SetPosition(int x, int y)
         {
-            _defender.X = x;
-            _defender.Y = y;
+            _mage.X = x;
+            _mage.Y = y;
             return this;
         }
 
         public IPlayerBuilder SetRoleType()
         {
-            _defender.RoleType = "Defender";
+            _mage.RoleType = "Mage";
             return this;
         }
 
         public IPlayerBuilder SetHealth()
         {
-            _defender.Health = 6;
+            _mage.Health = 4;
             return this;
         }
 
         public IPlayerBuilder SetColor()
         {
-            _defender.RoleColor = Color.Green;
+            _mage.RoleColor = Color.Blue;
             return this;
         }
 
         public IPlayerBuilder SetAttackType()
         {
-            _defender.AttackType = "Close combat";
+            _mage.AttackStrategy = new MageAttackStrategy();
             return this;
         }
         public IPlayerBuilder SetMovementStrategy(IMovementStrategy strategy)
         {
-            _defender.SetMovementStrategy(strategy);
+            _mage.SetMovementStrategy(strategy);
             return this;
         }
 
         public PlayerRole Build()
         {
-            return _defender;
+            return _mage;
         }
     }
 

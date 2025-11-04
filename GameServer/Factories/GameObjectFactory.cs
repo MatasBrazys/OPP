@@ -1,7 +1,7 @@
 //./GameShared/Factories/GameObjectFactory.cs
 using GameShared.Types.GameObjects;
 
-namespace GameShared.Factories
+namespace GameServer.Factories
 {
     public class GameObjectFactory
     {

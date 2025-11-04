@@ -7,7 +7,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace GameShared.Builders
+namespace GameServer.Builders
 {
     public interface IPlayerBuilder
     {

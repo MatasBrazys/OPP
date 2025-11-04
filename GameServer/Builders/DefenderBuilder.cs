@@ -1,70 +1,68 @@
-﻿//./GameShared/Builders/HunterBuilder.cs
+﻿//./GameShared/Builders/DefenderBuilder.cs
 using GameShared.Strategies;
 using GameShared.Types.Players;
-using System;
-using System.Collections.Generic;
 using System.Drawing;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using GameServer.Combat;
 
-namespace GameShared.Builders
+namespace GameServer.Builders
 {
-    public class HunterBuilder : IPlayerBuilder
+    public class DefenderBuilder : IPlayerBuilder
     {
-        private Hunter _hunter;
+        private Defender _defender;
+
 
         public IPlayerBuilder Start()
         {
-            _hunter = new Hunter();
+            _defender = new Defender();
             return this;
         }
 
         public IPlayerBuilder SetId(int id)
         {
-            _hunter.Id = id;
+            _defender.Id = id;
             return this;
         }
 
         public IPlayerBuilder SetPosition(int x, int y)
         {
-            _hunter.X = x;
-            _hunter.Y = y;
+            _defender.X = x;
+            _defender.Y = y;
             return this;
         }
+
         public IPlayerBuilder SetRoleType()
         {
-            _hunter.RoleType = "Hunter";
+            _defender.RoleType = "Defender";
             return this;
         }
 
         public IPlayerBuilder SetHealth()
         {
-            _hunter.Health = 5;
+            _defender.Health = 6;
             return this;
         }
 
         public IPlayerBuilder SetColor()
         {
-            _hunter.RoleColor = Color.Brown;
+            _defender.RoleColor = Color.Green;
             return this;
         }
 
         public IPlayerBuilder SetAttackType()
         {
-            _hunter.AttackType = "Crossbow";
+            _defender.AttackStrategy =new DefenderAttackStrategy(); ;
             return this;
         }
-
-        public IPlayerBuilder SetMovementStrategy(IMovementStrategy strategy) 
-        { 
-            _hunter.SetMovementStrategy(strategy); 
-            return this; 
+        public IPlayerBuilder SetMovementStrategy(IMovementStrategy strategy)
+        {
+            _defender.SetMovementStrategy(strategy);
+            return this;
         }
 
         public PlayerRole Build()
         {
-            return _hunter;
+            return _defender;
         }
     }
+
 }

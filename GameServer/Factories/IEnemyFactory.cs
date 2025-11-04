@@ -1,7 +1,7 @@
 //./GameShared/Factories/IEnemyFactory.cs
 using GameShared.Types.Enemies;
 
-namespace GameShared.Factories
+namespace GameServer.Factories
 {
     public interface IEnemyFactory
     {

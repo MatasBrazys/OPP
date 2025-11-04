@@ -46,6 +46,8 @@ namespace GameClient
 
         private readonly List<SlashEffect> activeSlashes = new();
         private readonly List<MageFireballEffect> activeFireballs = new();
+        private readonly List<ArrowEffect> activeArrows = new();
+
 
 
 
@@ -221,23 +223,29 @@ namespace GameClient
                                 if (float.TryParse(animMsg.Direction, out var r)) rotation = r;
                                 float radius = animMsg.Radius;
 
-                                // Determine effect type based on attack type or player role
-                                if (animMsg.AttackType == "slash") // Defender / melee
+                                switch (animMsg.AttackType)
                                 {
-                                    lock (activeSlashes)
-                                    {
-                                        activeSlashes.Add(new SlashEffect(animX, animY, radius, rotation));
-                                    }
-                                }
-                                else if (animMsg.AttackType == "mage") // Mage / ranged
-                                {
-                                    lock (activeFireballs)
-                                    {
-                                        activeFireballs.Add(new MageFireballEffect(animX, animY));
-                                    }
+                                    case "slash":
+                                        lock (activeSlashes)
+                                            activeSlashes.Add(new SlashEffect(animX, animY, radius, rotation));
+                                        break;
+                                    case "fireball":
+                                        lock (activeFireballs)
+                                            activeFireballs.Add(new MageFireballEffect(animX, animY));
+                                        break;
+                                    case "arrow":
+                                        // For arrow, use player's position as start if available
+                                        if (playerRenderers.TryGetValue(animMsg.PlayerId, out var pr))
+                                        {
+                                            var (px, py) = pr.Position;
+                                            lock (activeArrows)
+                                                activeArrows.Add(new ArrowEffect(px, py, animX, animY, rotation));
+                                        }
+                                        break;
                                 }
                             }
                             break;
+
 
 
 
@@ -418,6 +426,15 @@ namespace GameClient
                 fb.Draw(e.Graphics);
                 if (fb.IsFinished)
                     activeFireballs.RemoveAt(i);
+            }
+            lock (activeArrows)
+            {
+                for (int i = activeArrows.Count - 1; i >= 0; i--)
+                {
+                    var a = activeArrows[i];
+                    a.Draw(e.Graphics);
+                    if (a.IsFinished) activeArrows.RemoveAt(i);
+                }
             }
 
 

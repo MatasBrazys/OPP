@@ -1,6 +1,6 @@
 ﻿// ./GameServer/Game.cs
 using GameServer.Facades;
-using GameShared.Factories;
+using GameServer.Factories;
 using GameShared.Types.Map;
 using GameShared.Types.Players;
 using GameShared.Strategies;

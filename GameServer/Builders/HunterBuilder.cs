@@ -1,72 +1,67 @@
-﻿//./GameShared/Builders/MageBuilder.cs
+﻿//./GameShared/Builders/HunterBuilder.cs
+using GameServer.Combat;
 using GameShared.Strategies;
 using GameShared.Types.Players;
-using System;
-using System.Collections.Generic;
-using System.Diagnostics.Metrics;
 using System.Drawing;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
-namespace GameShared.Builders
+
+namespace GameServer.Builders
 {
-    public class MageBuilder : IPlayerBuilder
+    public class HunterBuilder : IPlayerBuilder
     {
-        private Mage _mage;
+        private Hunter _hunter;
 
         public IPlayerBuilder Start()
         {
-            _mage = new Mage();
+            _hunter = new Hunter();
             return this;
         }
 
         public IPlayerBuilder SetId(int id)
         {
-            _mage.Id = id;
+            _hunter.Id = id;
             return this;
         }
 
         public IPlayerBuilder SetPosition(int x, int y)
         {
-            _mage.X = x;
-            _mage.Y = y;
+            _hunter.X = x;
+            _hunter.Y = y;
             return this;
         }
-
         public IPlayerBuilder SetRoleType()
         {
-            _mage.RoleType = "Mage";
+            _hunter.RoleType = "Hunter";
             return this;
         }
 
         public IPlayerBuilder SetHealth()
         {
-            _mage.Health = 4;
+            _hunter.Health = 5;
             return this;
         }
 
         public IPlayerBuilder SetColor()
         {
-            _mage.RoleColor = Color.Blue;
+            _hunter.RoleColor = Color.Brown;
             return this;
         }
 
         public IPlayerBuilder SetAttackType()
         {
-            _mage.AttackType = "Magic";
+            _hunter.AttackStrategy = new HunterAttackStrategy();
             return this;
         }
-        public IPlayerBuilder SetMovementStrategy(IMovementStrategy strategy)
-        {
-            _mage.SetMovementStrategy(strategy);
-            return this;
+
+        public IPlayerBuilder SetMovementStrategy(IMovementStrategy strategy) 
+        { 
+            _hunter.SetMovementStrategy(strategy); 
+            return this; 
         }
 
         public PlayerRole Build()
         {
-            return _mage;
+            return _hunter;
         }
     }
-
 }

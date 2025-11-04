@@ -31,7 +31,7 @@ namespace GameServer
         private static readonly object _cherriesLock = new object();
         private static HashSet<(int x, int y)> eatenCherries = new HashSet<(int x, int y)>();
 
-        static readonly string[] AllRoles = new[] {  "mage", "defender" };//"hunter"
+        static readonly string[] AllRoles = new[] {  "mage", "defender","hunter" };//"hunter"
         private static readonly NormalMovement DefaultMovementStrategy = new();
         // Logging decorator switch
         private const bool EnableTileLogging = false;
@@ -73,7 +73,7 @@ namespace GameServer
                     // Pick a random role from the remaining ones
 
                     role = available[Random.Shared.Next(available.Count)];
-                    // role = "mage";
+                    // role = "hunter"; // temporarily force 
 
                     id = nextId++;
                     clients[id] = client;
