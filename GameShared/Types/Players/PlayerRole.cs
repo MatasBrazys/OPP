@@ -8,12 +8,11 @@ namespace GameShared.Types.Players
 {
     public abstract class PlayerRole : Entity, ICloneable
     {
-        public int Health { get; internal set; }
-        public string RoleType { get; internal set; }
-        public Color RoleColor { get; internal set; }
+        public int Health { get;  set; }
+        public string RoleType { get;  set; }
+        public Color RoleColor { get;  set; }
         public IAttackStrategy AttackStrategy { get; set; }
 
-        public string AttackType { get; internal set; }
         //cia reik abstract factory sudet, siuo metu as tiesiogiai facade sudedu situs, reiks settint juos i internal veliau. 
         //important!!!!!
         public float AttackRange { get; set; }
@@ -57,9 +56,6 @@ namespace GameShared.Types.Players
 
         public int GetSpeed() => _currentStrategy.GetSpeed(this);
         public bool CanMove(TileData tile) => _currentStrategy.CanMove(this, tile);
-
-        public abstract void Attack();
-        public abstract void SpecialAbility();
 
         protected void CopyBasePropertiesTo(PlayerRole target)
         {

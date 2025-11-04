@@ -1,7 +1,7 @@
 //./GameShared/Factories/IPlayerFactory.cs
 using GameShared.Types.Players;
 
-namespace GameShared.Factories
+namespace GameServer.Factories
 {
     // ABSTRACT FACTORY interface
     public interface IPlayerFactory

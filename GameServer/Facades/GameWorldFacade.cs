@@ -1,5 +1,5 @@
 ﻿//./GameServer/Facades/GameWorldFacade.cs
-using GameShared.Factories;
+using GameServer.Factories;
 using GameShared.Types.GameObjects;
 using GameShared.Types.Map;
 using GameShared.Types.Players;
@@ -29,18 +29,7 @@ namespace GameServer.Facades
         public PlayerRole CreatePlayer(string roleType, int id)
         {
             var (x, y) = FindPassableTile();
-            var player = _playerFactory.CreatePlayer(roleType, id, x, y);
-            if (roleType == "defender")
-            {
-                player.AttackStrategy = new DefenderAttackStrategy();
-
-            }
-            if (roleType == "mage")
-            {
-
-                player.AttackStrategy = new MageAttackStrategy();
-                
-            }    
+            var player = _playerFactory.CreatePlayer(roleType, id, x, y); 
             _world.AddEntity(player);
             return player;
         }

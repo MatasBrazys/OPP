@@ -15,14 +15,6 @@ namespace GameShared.Types.Players
             CopyBasePropertiesTo(clone);
             return clone;
         }
-        public override void Attack()
-        {
-            // Bow attack implementation
-        }
-
-        public override void SpecialAbility()
-        {
-            // Hunter special ability
-        }
+      
     }
 }

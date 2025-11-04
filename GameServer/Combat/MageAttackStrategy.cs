@@ -9,12 +9,11 @@ namespace GameServer.Combat
 {
     public class MageAttackStrategy : IAttackStrategy
     {
-        private const int Damage = 8;
-        private const float AttackRangePx = GameConstants.TILE_SIZE * 3; // ranged: 3 tiles
-        private const float MaxVisualDistancePx = 200f;                   // visual clamp for animation
-        private const float AoERadiusPx = GameConstants.TILE_SIZE;        // splash around target
+        private const int Damage = 18;
+        private const float MaxVisualDistancePx = GameConstants.TILE_SIZE * 2;                 
+        private const float AoERadiusPx = GameConstants.TILE_SIZE/3;    // Area of Effect radius
         private static DateTime _lastAttack = DateTime.MinValue;
-        private static readonly TimeSpan Cooldown = TimeSpan.FromMilliseconds(500);
+        private static readonly TimeSpan Cooldown = TimeSpan.FromMilliseconds(1200);
 
         public void ExecuteAttack(PlayerRole player, AttackMessage msg)
         {
@@ -58,7 +57,7 @@ namespace GameServer.Combat
             // Broadcast animation
             var animMsg = new AttackAnimationMessage
             {
-                AttackType = "mage",
+                AttackType = "fireball",
                 PlayerId = player.Id,
                 AnimX = animX,
                 AnimY = animY,

@@ -2,7 +2,7 @@
 using GameShared.Strategies;
 using GameShared.Types.Enemies;
 
-namespace GameShared.Factories
+namespace GameServer.Factories
 {
     public class EnemyFactory : IEnemyFactory
     {

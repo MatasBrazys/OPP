@@ -63,22 +63,34 @@ namespace GameClient.Rendering
             using var brush = new SolidBrush(Color.Black);
             g.DrawString(label, font, brush, drawX, drawY - 16);
 
+            // Inside Draw()
             if (_isLocalPlayer)
             {
-                // Role-dependent attack range
-                float radius = Role.ToLower() switch
-                {
-                    "defender" => GameConstants.TILE_SIZE,
-                    "mage" => 2f * GameConstants.TILE_SIZE,
-                    "hunter" => 4f * GameConstants.TILE_SIZE,
-                    _ => GameConstants.TILE_SIZE
-                };
-
-                using var pen = new Pen(Color.FromArgb(120, Color.Blue), 1.5f);
                 float centerX = drawX + playerSize / 2f;
                 float centerY = drawY + playerSize / 2f;
+                float radius = GameConstants.TILE_SIZE;
+                Color color = Color.Blue;
+
+                switch (Role.ToLower())
+                {
+                    case "mage":
+                        radius = GameConstants.TILE_SIZE * 2f;
+                        color = Color.Purple;
+                        break;
+                    case "hunter":
+                        radius = GameConstants.TILE_SIZE * 3f;
+                        color = Color.Yellow;
+                        break;
+                    case "defender":
+                        radius = GameConstants.TILE_SIZE;
+                        color = Color.Blue;
+                        break;
+                }
+
+                using var pen = new Pen(Color.FromArgb(120, color), 1.5f);
                 g.DrawEllipse(pen, centerX - radius, centerY - radius, radius * 2f, radius * 2f);
             }
+
         }
     }
 }

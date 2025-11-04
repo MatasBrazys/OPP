@@ -15,14 +15,6 @@ namespace GameShared.Types.Players
             CopyBasePropertiesTo(clone);
             return clone;
         }
-        public override void Attack()
-        {
-            // Magic attack implementation
-        }
-
-        public override void SpecialAbility()
-        {
-            // Mage special ability
-        }
+      
     }
 }

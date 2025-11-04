@@ -1,8 +1,8 @@
 //./GameShared/Factories/PlayerFactory.cs
-using GameShared.Builders;
+using GameServer.Builders;
 using GameShared.Types.Players;
 
-namespace GameShared.Factories
+namespace GameServer.Factories
 {
     public class PlayerFactory : IPlayerFactory
     {
