@@ -12,6 +12,7 @@ using GameShared.Types.Map;
 using GameShared.Types.DTOs;
 using GameShared;
 using GameClient.Theming;
+using GameClient.Rendering.Bridge;
 
 namespace GameClient
 {
@@ -41,6 +42,11 @@ namespace GameClient
         private IUiPalette _uiPalette;
         private Image _defaultEnemySprite;
 
+        private IRenderer _standardRenderer;
+        private IRenderer _antiAliasedRenderer;
+        private IRenderer _debugRenderer;
+        private int _currentRendererMode = 0; // 0=standard, 1=antialiased, 2=debug
+
         public GameClientForm()
         {
             InitializeComponentMinimal();
@@ -54,10 +60,15 @@ namespace GameClient
             _summerFactory = new SummerGameThemeFactory();
             _winterFactory = new WinterGameThemeFactory();
 
-            // Apply default theme (Winter)
             ApplyTheme(ThemeMode.Winter, refreshSprites: false);
 
-            _entityManager = new EntityManager(_defaultEnemySprite);
+            // BRIDGE: Initialize renderers
+            _standardRenderer = new StandardRenderer();
+            _antiAliasedRenderer = new AntiAliasedRenderer();
+            _debugRenderer = new DebugRenderer();
+
+            // BRIDGE: Pass renderer to EntityManager
+            _entityManager = new EntityManager(_defaultEnemySprite, _standardRenderer);
 
             _tileManager = new TileManager(TileSize);
             _animManager = new AnimationManager();
@@ -68,7 +79,6 @@ namespace GameClient
             _gameTimer.Tick += GameLoop;
             _gameTimer.Start();
 
-            // input events
             KeyDown += GameClientForm_KeyDown;
             KeyDown += _inputHandler.KeyDown;
             KeyUp += _inputHandler.KeyUp;
@@ -284,6 +294,33 @@ namespace GameClient
             {
                 var nextMode = _currentTheme == ThemeMode.Summer ? ThemeMode.Winter : ThemeMode.Summer;
                 ApplyTheme(nextMode, refreshSprites: true);
+            }
+
+            // BRIDGE: F7 to cycle through renderers
+            if (e.KeyCode == Keys.F7)
+            {
+                _currentRendererMode = (_currentRendererMode + 1) % 3;
+
+                IRenderer newRenderer = _currentRendererMode switch
+                {
+                    0 => _standardRenderer,
+                    1 => _antiAliasedRenderer,
+                    2 => _debugRenderer,
+                    _ => _standardRenderer
+                };
+
+                _entityManager.SetRenderer(newRenderer);
+
+                string modeName = _currentRendererMode switch
+                {
+                    0 => "Standard",
+                    1 => "Anti-Aliased",
+                    2 => "Debug",
+                    _ => "Unknown"
+                };
+
+                Console.WriteLine($"[BRIDGE] Switched to {modeName} renderer");
+                Invalidate();
             }
         }
 

@@ -1,7 +1,9 @@
+// File: GameClient/Managers/EntityManager.cs (MODIFIED VERSION)
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
 using GameClient.Rendering;
+using GameClient.Rendering.Bridge;
 using GameShared.Types.DTOs;
 
 namespace GameClient.Managers
@@ -11,10 +13,32 @@ namespace GameClient.Managers
         private readonly Dictionary<int, PlayerRenderer> _players = new();
         private readonly Dictionary<int, EnemyRenderer> _enemies = new();
         private Image _defaultEnemySprite;
+        
+        // BRIDGE: Store current renderer mode
+        private IRenderer _currentRenderer;
 
-        public EntityManager(Image defaultEnemySprite)
+        public EntityManager(Image defaultEnemySprite, IRenderer? renderer = null)
         {
             _defaultEnemySprite = defaultEnemySprite;
+            _currentRenderer = renderer ?? new StandardRenderer();
+        }
+
+        // BRIDGE: Method to switch renderers for ALL entities
+        public void SetRenderer(IRenderer renderer)
+        {
+            _currentRenderer = renderer ?? throw new System.ArgumentNullException(nameof(renderer));
+            
+            lock (_players)
+            {
+                foreach (var pr in _players.Values)
+                    pr.SetRenderer(_currentRenderer);
+            }
+            
+            lock (_enemies)
+            {
+                foreach (var er in _enemies.Values)
+                    er.SetRenderer(_currentRenderer);
+            }
         }
 
         public void SetDefaultEnemySprite(Image sprite)
@@ -32,7 +56,10 @@ namespace GameClient.Managers
                     {
                         var sprite = SpriteRegistry.GetSprite(ps.RoleType);
                         var isLocal = ps.Id == localPlayerId;
-                        var renderer = new PlayerRenderer(ps.Id, ps.RoleType, ps.X, ps.Y, sprite, isLocal, Color.Black, Color.Blue);
+                        
+                        // BRIDGE: Pass renderer to constructor
+                        var renderer = new PlayerRenderer(ps.Id, ps.RoleType, ps.X, ps.Y, sprite, 
+                                                         isLocal, Color.Black, Color.Blue, _currentRenderer);
                         _players[ps.Id] = renderer;
                     }
                     else
@@ -56,7 +83,10 @@ namespace GameClient.Managers
                     if (!_enemies.TryGetValue(es.Id, out var existing))
                     {
                         var sprite = SpriteRegistry.GetSprite(es.EnemyType) ?? _defaultEnemySprite;
-                        var renderer = new EnemyRenderer(es.Id, es.EnemyType, es.X, es.Y, sprite, es.Health, es.MaxHealth);
+                        
+                        // BRIDGE: Pass renderer to constructor
+                        var renderer = new EnemyRenderer(es.Id, es.EnemyType, es.X, es.Y, sprite, 
+                                                        es.Health, es.MaxHealth, _currentRenderer);
                         _enemies[es.Id] = renderer;
                     }
                     else

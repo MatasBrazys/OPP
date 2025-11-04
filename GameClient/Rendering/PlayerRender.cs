@@ -1,7 +1,8 @@
-// ./GameClient/Rendering/PlayerRender.cs
+// File: GameClient/Rendering/PlayerRenderer.cs (MODIFIED VERSION)
 using System;
 using System.Drawing;
 using GameShared;
+using GameClient.Rendering.Bridge;
 
 namespace GameClient.Rendering
 {
@@ -12,13 +13,18 @@ namespace GameClient.Rendering
         private float _prevX, _prevY;
         private float _targetX, _targetY;
         private DateTime _lastUpdateUtc;
-        private  Image _sprite;
+        private Image _sprite;
         private readonly bool _isLocalPlayer;
         private Color _labelColor;
         private Color _localPlayerRingColor;
         private const double InterpolationMs = 100.0;
 
-        public PlayerRenderer(int id, string role, int startX, int startY, Image sprite, bool isLocalPlayer, Color labelColor, Color localPlayerRingColor)
+        // BRIDGE PATTERN: Use IRenderer instead of direct Graphics calls
+        private IRenderer _renderer;
+
+        public PlayerRenderer(int id, string role, int startX, int startY, Image sprite, 
+                            bool isLocalPlayer, Color labelColor, Color localPlayerRingColor,
+                            IRenderer? renderer = null)
         {
             Id = id;
             Role = role;
@@ -29,9 +35,18 @@ namespace GameClient.Rendering
             _isLocalPlayer = isLocalPlayer;
             _labelColor = labelColor;
             _localPlayerRingColor = localPlayerRingColor;
-
+            
+            // BRIDGE: Default to StandardRenderer if none provided
+            _renderer = renderer ?? new StandardRenderer();
         }
-         public void UpdateTheme(Image sprite, Color labelColor, Color localPlayerRingColor)
+
+        // BRIDGE: Allow changing renderer at runtime
+        public void SetRenderer(IRenderer renderer)
+        {
+            _renderer = renderer ?? throw new ArgumentNullException(nameof(renderer));
+        }
+
+        public void UpdateTheme(Image sprite, Color labelColor, Color localPlayerRingColor)
         {
             _sprite = sprite;
             _labelColor = labelColor;
@@ -55,7 +70,7 @@ namespace GameClient.Rendering
                 var t = (float)Math.Clamp(elapsedMs / InterpolationMs, 0.0, 1.0);
                 float drawX = _prevX + (_targetX - _prevX) * t;
                 float drawY = _prevY + (_targetY - _prevY) * t;
-                return (drawX + GameConstants.PLAYER_SIZE / 2f, drawY + GameConstants.PLAYER_SIZE / 2f); // return center
+                return (drawX + GameConstants.PLAYER_SIZE / 2f, drawY + GameConstants.PLAYER_SIZE / 2f);
             }
         }
 
@@ -67,15 +82,18 @@ namespace GameClient.Rendering
             float drawY = _prevY + (_targetY - _prevY) * t;
 
             int playerSize = GameConstants.PLAYER_SIZE;
-            g.DrawImage(_sprite, drawX, drawY, playerSize, playerSize);
+            
+            // BRIDGE: Use renderer instead of direct g.DrawImage
+            _renderer.DrawSprite(g, _sprite, drawX, drawY, playerSize, playerSize);
 
             // Draw ID and role
             string label = $"{Role} (ID:{Id})";
             using var font = new Font(SystemFonts.DefaultFont.FontFamily, 8, FontStyle.Bold);
-            using var brush = new SolidBrush(_labelColor);
-            g.DrawString(label, font, brush, drawX, drawY - 16);
+            
+            // BRIDGE: Use renderer for text
+            _renderer.DrawText(g, label, font, _labelColor, drawX, drawY - 16);
 
-            // Inside Draw()
+            // Draw range indicator for local player
             if (_isLocalPlayer)
             {
                 float centerX = drawX + playerSize / 2f;
@@ -99,10 +117,10 @@ namespace GameClient.Rendering
                         break;
                 }
 
+                // BRIDGE: Use renderer for shapes
                 using var pen = new Pen(_localPlayerRingColor, 1.5f);
                 g.DrawEllipse(pen, centerX - radius, centerY - radius, radius * 2f, radius * 2f);
             }
-
         }
     }
 }
