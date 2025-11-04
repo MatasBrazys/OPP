@@ -1,19 +1,21 @@
 // ./GameClient/Commands/WalkCommand.cs
+using System.Data;
 using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
+using GameClient.Networking;
 using GameShared.Messages;
 
 public class WalkCommand : IGameCommand
 {
-    private readonly TcpClient client;
+    private readonly ServerConnection connection;
     private readonly int playerId;
     private readonly float dx;
     private readonly float dy;
 
-    public WalkCommand(TcpClient client, int playerId, float dx, float dy)
+    public WalkCommand(ServerConnection connection, int playerId, float dx, float dy)
     {
-        this.client = client;
+        this.connection = connection ;
         this.playerId = playerId;
         this.dx = dx;
         this.dy = dy;
@@ -28,10 +30,8 @@ public class WalkCommand : IGameCommand
             Dy = (int)Math.Round(dy)
         };
 
-        var json = JsonSerializer.Serialize(msg) + "\n";
-        var data = Encoding.UTF8.GetBytes(json);
-
-        try { client.GetStream().Write(data, 0, data.Length); }
-        catch { }
+        var json = JsonSerializer.Serialize(msg);
+        connection.SendRaw(json);
+       
     }
 }
