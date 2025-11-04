@@ -1,12 +1,17 @@
+using System.Collections.Generic;
+using System.Linq;
 using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
+using System.Drawing;
+using System.Windows.Forms;
 using GameShared.Messages;
 using GameShared.Types.Map;
 using GameClient.Rendering;
 using GameClient.Adapters;
 using GameShared;
 using GameShared.Types.DTOs;
+using GameClient.Theming;
 
 namespace GameClient
 {
@@ -29,26 +34,31 @@ namespace GameClient
 
         private readonly CommandInvoker commandInvoker = new();
 
-        // Tile sprites
-        private readonly Image grassSprite = Image.FromFile("../assets/grass.png");
-        private readonly Image treeSprite = Image.FromFile("../assets/tree.png");
-        private readonly Image houseSprite = Image.FromFile("../assets/house.png");
-        private readonly Image appleSprite = Image.FromFile("../assets/apple.png");
-        private readonly Image fishSprite = Image.FromFile("../assets/fish.png");
-        private readonly Image waterSprite = Image.FromFile("../assets/water.png");
-        private readonly Image sandSprite = Image.FromFile("../assets/sand.png");
-        private readonly Image cherrySprite = Image.FromFile("../assets/cherry.jpg");
+        private readonly IGameThemeFactory summerFactory;
+        private readonly IGameThemeFactory winterFactory;
+        private ThemeMode currentTheme;
 
-        // Enemy sprites
-        private readonly Image slimeSprite = Image.FromFile("../assets/slime.png");
+        private ITileSpriteSet tileSpriteSet;
+        private IPlayerSpriteSet playerSpriteSet;
+        private IEnemySpriteSet enemySpriteSet;
+        private IUiPalette uiPalette;
+        private Image defaultEnemySprite;
 
         private readonly List<SlashEffect> activeSlashes = new();
         private readonly List<MageFireballEffect> activeFireballs = new();
 
 
 
-        public GameClientForm()
+        public GameClientForm() : this(new SummerGameThemeFactory(), new WinterGameThemeFactory())
         {
+        }
+
+        public GameClientForm(IGameThemeFactory summerFactory, IGameThemeFactory winterFactory)
+        {
+            this.summerFactory = summerFactory;
+            this.winterFactory = winterFactory;
+            ApplyTheme(ThemeMode.Winter, refreshSprites: false);
+
             this.DoubleBuffered = true;
             this.SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint | ControlStyles.OptimizedDoubleBuffer, true);
 
@@ -63,25 +73,74 @@ namespace GameClient
             gameTimer.Start();
         }
 
+        private void ApplyTheme(ThemeMode mode, bool refreshSprites)
+        {
+            currentTheme = mode;
+            var factory = mode == ThemeMode.Summer ? summerFactory : winterFactory;
+
+            tileSpriteSet = factory.CreateTileSpriteSet();
+            playerSpriteSet = factory.CreatePlayerSpriteSet();
+            enemySpriteSet = factory.CreateEnemySpriteSet();
+            uiPalette = factory.CreateUiPalette();
+            defaultEnemySprite = enemySpriteSet.Sprites.TryGetValue("Slime", out var slime)
+                ? slime
+                : ThemeSpriteLoader.LoadEnemySprite("../assets/slime.png", Color.DarkSeaGreen);
+
+            UpdateWindowTitle();
+
+            if (!refreshSprites)
+                return;
+
+            SpriteRegistry.Clear();
+            RegisterThemeSprites();
+            RefreshPlayerRenderers();
+            Invalidate();
+        }
+
+        private void RegisterThemeSprites()
+        {
+            foreach (var kvp in tileSpriteSet.Sprites)
+            {
+                SpriteRegistry.Register(kvp.Key, kvp.Value);
+            }
+
+            foreach (var kvp in playerSpriteSet.Sprites)
+            {
+                SpriteRegistry.Register(kvp.Key, kvp.Value);
+            }
+
+            foreach (var kvp in enemySpriteSet.Sprites)
+            {
+                SpriteRegistry.Register(kvp.Key, kvp.Value);
+            }
+        }
+
+        private void RefreshPlayerRenderers()
+        {
+            lock (playerRenderers)
+            {
+                foreach (var renderer in playerRenderers.Values)
+                {
+                    var sprite = SpriteRegistry.GetSprite(renderer.Role);
+                    renderer.UpdateTheme(sprite, uiPalette.PlayerLabelColor, uiPalette.LocalPlayerRingColor);
+                }
+            }
+        }
+
+        private void ToggleTheme()
+        {
+            var nextMode = currentTheme == ThemeMode.Summer ? ThemeMode.Winter : ThemeMode.Summer;
+            ApplyTheme(nextMode, refreshSprites: true);
+        }
+
+        private void UpdateWindowTitle()
+        {
+            Text = $"Game Client - {currentTheme} Mode";
+        }
+
         private void GameClientForm_Load(object? sender, EventArgs e)
         {
-            // Register tile sprites
-            SpriteRegistry.Register("Grass", grassSprite);
-            SpriteRegistry.Register("Tree", treeSprite);
-            SpriteRegistry.Register("House", houseSprite);
-            SpriteRegistry.Register("Apple", appleSprite);
-            SpriteRegistry.Register("Fish", fishSprite);
-            SpriteRegistry.Register("Water", waterSprite);
-            SpriteRegistry.Register("Sand", sandSprite);
-            SpriteRegistry.Register("Cherry", cherrySprite);
-
-            // Register player sprites
-            SpriteRegistry.Register("Mage", Image.FromFile("../assets/mage.png"));
-            SpriteRegistry.Register("Hunter", Image.FromFile("../assets/hunter.png"));
-            SpriteRegistry.Register("Defender", Image.FromFile("../assets/defender.png"));
-
-            // Register enemy sprites
-            SpriteRegistry.Register("Slime", slimeSprite);
+            RegisterThemeSprites();
 
             try
             {
@@ -208,7 +267,15 @@ namespace GameClient
                     {
                         var sprite = SpriteRegistry.GetSprite(ps.RoleType);
                         var isLocal = ps.Id == myId;
-                        var renderer = new PlayerRenderer(ps.Id, ps.RoleType, ps.X, ps.Y, sprite, isLocal);
+                        var renderer = new PlayerRenderer(
+                            ps.Id,
+                            ps.RoleType,
+                            ps.X,
+                            ps.Y,
+                            sprite,
+                            isLocal,
+                            uiPalette.PlayerLabelColor,
+                            uiPalette.LocalPlayerRingColor);
                         playerRenderers[ps.Id] = renderer;
                     }
                     else
@@ -231,7 +298,7 @@ namespace GameClient
                 {
                     if (!enemyRenderers.TryGetValue(es.Id, out var existing))
                     {
-                        var sprite = SpriteRegistry.GetSprite(es.EnemyType) ?? slimeSprite;
+                        var sprite = SpriteRegistry.GetSprite(es.EnemyType) ?? defaultEnemySprite;
                         var renderer = new EnemyRenderer(es.Id, es.EnemyType, es.X, es.Y, sprite, es.Health, es.MaxHealth);
                         enemyRenderers[es.Id] = renderer;
                     }
@@ -354,14 +421,23 @@ namespace GameClient
             }
 
 
-            using var pen = new Pen(Color.Black, 1);
+            using var pen = new Pen(uiPalette.GridLineColor, 1);
             for (int x = 0; x <= map.Width; x++)
                 e.Graphics.DrawLine(pen, x * TileSize, 0, x * TileSize, map.Height * TileSize);
             for (int y = 0; y <= map.Height; y++)
                 e.Graphics.DrawLine(pen, 0, y * TileSize, map.Width * TileSize, y * TileSize);
         }
 
-        private void GameClientForm_KeyDown(object? sender, KeyEventArgs e) => pressedKeys.Add(e.KeyCode);
+        private void GameClientForm_KeyDown(object? sender, KeyEventArgs e)
+        {
+            if (e.KeyCode == Keys.F5)
+            {
+                ToggleTheme();
+                return;
+            }
+
+            pressedKeys.Add(e.KeyCode);
+        }
         private void GameClientForm_KeyUp(object? sender, KeyEventArgs e) => pressedKeys.Remove(e.KeyCode);
     }
 }
