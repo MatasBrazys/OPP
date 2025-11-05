@@ -37,7 +37,7 @@ namespace GameClient.Theming
     {
         private readonly IReadOnlyDictionary<string, Image> _sprites = new Dictionary<string, Image>
         {
-            ["Slime"] = ThemeSpriteLoader.LoadEnemySprite("../assets/slime.png", Color.DarkSeaGreen)
+            ["Slime"] = ThemeSpriteLoader.LoadEnemySprite("../assets/winter_slime.png", Color.DarkSeaGreen)
         };
 
         public IReadOnlyDictionary<string, Image> Sprites => _sprites;
@@ -59,5 +59,14 @@ namespace GameClient.Theming
         public IEnemySpriteSet CreateEnemySpriteSet() => new WinterEnemySpriteSet();
 
         public IUiPalette CreateUiPalette() => new WinterPalette();
+        //private static readonly Lazy<ITileSpriteSet> TileSet = new(() => new WinterTileSpriteSet());
+        //private static readonly Lazy<IPlayerSpriteSet> PlayerSet = new(() => new WinterPlayerSpriteSet());
+        //private static readonly Lazy<IEnemySpriteSet> EnemySet = new(() => new WinterEnemySpriteSet());
+        //private static readonly Lazy<IUiPalette> Palette = new(() => new WinterPalette());
+
+        //public ITileSpriteSet CreateTileSpriteSet() => TileSet.Value;
+        //public IPlayerSpriteSet CreatePlayerSpriteSet() => PlayerSet.Value;
+        //public IEnemySpriteSet CreateEnemySpriteSet() => EnemySet.Value;
+        //public IUiPalette CreateUiPalette() => Palette.Value;
     }
 }

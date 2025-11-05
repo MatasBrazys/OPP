@@ -61,8 +61,6 @@ namespace GameClient
             _summerFactory = new SummerGameThemeFactory();
             _winterFactory = new WinterGameThemeFactory();
 
-            ApplyTheme(ThemeMode.Winter, refreshSprites: false);
-
             // BRIDGE: Initialize renderers
             _standardRenderer = new StandardRenderer();
             _antiAliasedRenderer = new AntiAliasedRenderer();
@@ -70,6 +68,9 @@ namespace GameClient
 
             // BRIDGE: Pass renderer to EntityManager
             _entityManager = new EntityManager(_defaultEnemySprite, _standardRenderer);
+
+            // apply default theme
+            ApplyTheme(ThemeMode.Winter, refreshSprites: true);
 
             _tileManager = new TileManager(TileSize);
             _animManager = new AnimationManager();
@@ -229,6 +230,7 @@ namespace GameClient
                 _cursorRenderer.Position = _inputManager.GetAimPosition();
             }
             var (dx, dy) = _inputManager.GetMovementInput();
+            //Console.WriteLine($"[INPUT] Movement Input: dx={dx}, dy={dy}");
             var walkCommand = new WalkCommand(_connection, _myId, dx, dy);
             _commandInvoker.AddCommand(walkCommand);
             bool attackPressed = _inputManager.IsAttackPressed();
@@ -266,6 +268,7 @@ namespace GameClient
 
         private void ApplyTheme(ThemeMode mode, bool refreshSprites)
         {
+            Console.WriteLine("Applying theme: " + mode);
             _currentTheme = mode;
             var factory = mode == ThemeMode.Summer ? _summerFactory : _winterFactory;
 

@@ -59,5 +59,14 @@ namespace GameClient.Theming
         public IEnemySpriteSet CreateEnemySpriteSet() => new SummerEnemySpriteSet();
 
         public IUiPalette CreateUiPalette() => new SummerPalette();
+        //private static readonly Lazy<ITileSpriteSet> TileSet = new(() => new SummerTileSpriteSet());
+        //private static readonly Lazy<IPlayerSpriteSet> PlayerSet = new(() => new SummerPlayerSpriteSet());
+        //private static readonly Lazy<IEnemySpriteSet> EnemySet = new(() => new SummerEnemySpriteSet());
+        //private static readonly Lazy<IUiPalette> Palette = new(() => new SummerPalette());
+
+        //public ITileSpriteSet CreateTileSpriteSet() => TileSet.Value;
+        //public IPlayerSpriteSet CreatePlayerSpriteSet() => PlayerSet.Value;
+        //public IEnemySpriteSet CreateEnemySpriteSet() => EnemySet.Value;
+        //public IUiPalette CreateUiPalette() => Palette.Value;
     }
 }
