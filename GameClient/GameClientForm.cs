@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Text.Json;
 using System.Windows.Forms;
-using GameClient.Input;
+using GameClient.Input.Adapters;
 using GameClient.Managers;
 using GameClient.Networking;
 using GameClient.Rendering;
@@ -23,7 +23,7 @@ namespace GameClient
         private readonly EntityManager _entityManager;
         private readonly TileManager _tileManager;
         private readonly AnimationManager _animManager;
-        private readonly InputHandler _inputHandler;
+        private readonly InputManager _inputManager;
         private readonly CommandInvoker _commandInvoker;
 
         private int _myId;
@@ -46,6 +46,7 @@ namespace GameClient
         private IRenderer _antiAliasedRenderer;
         private IRenderer _debugRenderer;
         private int _currentRendererMode = 0; // 0=standard, 1=antialiased, 2=debug
+        private readonly CursorRenderer _cursorRenderer;
 
         public GameClientForm()
         {
@@ -72,7 +73,9 @@ namespace GameClient
 
             _tileManager = new TileManager(TileSize);
             _animManager = new AnimationManager();
-            _inputHandler = new InputHandler();
+
+            // InputManager MUST be created AFTER form is fully initialized
+            _inputManager = new InputManager(this, ClientSize);
             _commandInvoker = new CommandInvoker();
 
             _gameTimer = new System.Windows.Forms.Timer { Interval = 16 };
@@ -80,9 +83,11 @@ namespace GameClient
             _gameTimer.Start();
 
             KeyDown += GameClientForm_KeyDown;
-            KeyDown += _inputHandler.KeyDown;
-            KeyUp += _inputHandler.KeyUp;
-            MouseClick += OnMouseClick;
+
+            // DEBUG: Add this to verify mouse clicks are being received
+            this.MouseDown += (s, e) => Console.WriteLine($"[DEBUG] Form MouseDown: {e.Button} at ({e.X}, {e.Y})");
+
+            _cursorRenderer = new CursorRenderer();
         }
 
         private void InitializeComponentMinimal()
@@ -211,28 +216,44 @@ namespace GameClient
             _tileManager.SetTile(newTile);
         }
 
+        // UPDATED GameLoop - handles both movement and attacks
         private void GameLoop(object? sender, EventArgs e)
         {
             if (!_connection.IsConnected || _myId == 0) return;
 
-            _inputHandler.UpdateMovement();
+            _inputManager.Update();
 
-            var walkCommand = new WalkCommand(_connection, _myId, _inputHandler.MoveX, _inputHandler.MoveY);
+            // Update cursor visibility and position
+            bool isGamepad = _inputManager.ActiveAdapter?.InputMethodName.Contains("Controller") ?? false;
+            _cursorRenderer.Visible = isGamepad;
+            if (isGamepad)
+            {
+                _cursorRenderer.Position = _inputManager.GetAimPosition();
+            }
+
+            // Handle movement
+            var (dx, dy) = _inputManager.GetMovementInput();
+            var walkCommand = new WalkCommand(_connection, _myId, dx, dy);
             _commandInvoker.AddCommand(walkCommand);
-            _commandInvoker.ExecuteCommands();
 
+            // Handle attacks
+            bool attackPressed = _inputManager.IsAttackPressed();
+            if (attackPressed)
+            {
+                var pr = _entityManager.GetPlayerRenderer(_myId);
+                if (pr != null)
+                {
+                    var aimPos = _inputManager.GetAimPosition();
+                    var attackCommand = new AttackCommand(_connection, _myId, aimPos.X, aimPos.Y, "slash");
+                    _commandInvoker.AddCommand(attackCommand);
+                }
+            }
+
+            _commandInvoker.ExecuteCommands();
             Invalidate();
         }
 
-        private void OnMouseClick(object? sender, MouseEventArgs e)
-        {
-            if (_myId == 0 || !_connection.IsConnected) return;
-            var pr = _entityManager.GetPlayerRenderer(_myId);
-            if (pr == null) return;
 
-            var attackCommand = new AttackCommand(_connection, _myId, e.X, e.Y, "slash");
-            _commandInvoker.AddCommand(attackCommand);
-        }
 
         private void GameClientForm_Paint(object? sender, PaintEventArgs e)
         {
@@ -245,6 +266,8 @@ namespace GameClient
                 e.Graphics.DrawLine(pen, x * TileSize, 0, x * TileSize, _map.Height * TileSize);
             for (int y = 0; y <= _map.Height; y++)
                 e.Graphics.DrawLine(pen, 0, y * TileSize, _map.Width * TileSize, y * TileSize);
+            
+            _cursorRenderer.Draw(e.Graphics);
         }
 
         private void ApplyTheme(ThemeMode mode, bool refreshSprites)
@@ -321,6 +344,12 @@ namespace GameClient
 
                 Console.WriteLine($"[BRIDGE] Switched to {modeName} renderer");
                 Invalidate();
+            }
+            // F6 to cycle input adapters
+            if (e.KeyCode == Keys.F6)
+            {
+                _inputManager.CycleInputAdapter();
+                Console.WriteLine($"Input Method: {_inputManager.CurrentInputMethod}");
             }
         }
 
