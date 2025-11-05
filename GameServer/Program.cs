@@ -5,7 +5,9 @@ namespace GameServer
     {
         static void Main(string[] args)
         {
-            Game.Instance.Start();
+            // Game.Instance.Start();
+            SingletonTest.Run();
+
         }
     }
 }
