@@ -2,7 +2,7 @@
 using GameShared.Types.Enemies; // or wherever Enemy base class is
 
 
-namespace GameServer.Strategies
+namespace GameShared.Strategies
 {
     public class LeftRightRoam
     {

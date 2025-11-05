@@ -74,7 +74,7 @@ namespace GameClient
             _tileManager = new TileManager(TileSize);
             _animManager = new AnimationManager();
 
-            // InputManager MUST be created AFTER form is fully initialized
+            //input
             _inputManager = new InputManager(this, ClientSize);
             _commandInvoker = new CommandInvoker();
 
@@ -84,8 +84,8 @@ namespace GameClient
 
             KeyDown += GameClientForm_KeyDown;
 
-            // DEBUG: Add this to verify mouse clicks are being received
-            this.MouseDown += (s, e) => Console.WriteLine($"[DEBUG] Form MouseDown: {e.Button} at ({e.X}, {e.Y})");
+            
+            // this.MouseDown += (s, e) => Console.WriteLine($"[DEBUG] Form MouseDown: {e.Button} at ({e.X}, {e.Y})");
 
             _cursorRenderer = new CursorRenderer();
         }
@@ -216,27 +216,21 @@ namespace GameClient
             _tileManager.SetTile(newTile);
         }
 
-        // UPDATED GameLoop - handles both movement and attacks
         private void GameLoop(object? sender, EventArgs e)
         {
             if (!_connection.IsConnected || _myId == 0) return;
 
             _inputManager.Update();
 
-            // Update cursor visibility and position
             bool isGamepad = _inputManager.ActiveAdapter?.InputMethodName.Contains("Controller") ?? false;
             _cursorRenderer.Visible = isGamepad;
             if (isGamepad)
             {
                 _cursorRenderer.Position = _inputManager.GetAimPosition();
             }
-
-            // Handle movement
             var (dx, dy) = _inputManager.GetMovementInput();
             var walkCommand = new WalkCommand(_connection, _myId, dx, dy);
             _commandInvoker.AddCommand(walkCommand);
-
-            // Handle attacks
             bool attackPressed = _inputManager.IsAttackPressed();
             if (attackPressed)
             {
