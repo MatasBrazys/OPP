@@ -31,13 +31,16 @@ namespace GameServer
         private static readonly object _cherriesLock = new object();
         private static HashSet<(int x, int y)> eatenCherries = new HashSet<(int x, int y)>();
 
-        static readonly string[] AllRoles = new[] {  "mage", "defender","hunter" };//"hunter"
+        static readonly string[] AllRoles = new[] { "mage", "defender", "hunter" };//"hunter"
         private static readonly NormalMovement DefaultMovementStrategy = new();
         // Logging decorator switch
         private const bool EnableTileLogging = false;
 
         private CollisionDetector _collisionDetector;
         private List<CommandHandler> _commandHandlers;
+
+        private static readonly Dictionary<int, (int x, int y)> lastPositions = new();
+
 
         public void Start(int port)
         {
@@ -108,14 +111,15 @@ namespace GameServer
                 var player = Game.Instance.WorldFacade.GetPlayer(id);
                 if (player == null) return;
 
+                // 🧠 Save last position BEFORE movement
+                lastPositions[id] = (player.X, player.Y);
+                
                 int newX = player.X + input.Dx * player.GetSpeed();
                 int newY = player.Y + input.Dy * player.GetSpeed();
 
                 var result = Game.Instance.WorldFacade.TryMovePlayer(id, newX, newY);
-
                 if (result != null)
                 {
-
                     ApplyTileEnterResult(player, player.X / GameConstants.TILE_SIZE, player.Y / GameConstants.TILE_SIZE, result);
                 }
 
@@ -125,6 +129,7 @@ namespace GameServer
 
             BroadcastState();
         }
+
 
         private void ApplyTileEnterResult(PlayerRole player, int tileX, int tileY, TileEnterResult result)
         {
@@ -294,6 +299,15 @@ namespace GameServer
                             var input = JsonSerializer.Deserialize<InputMessage>(line);
                             HandleInput(id, input);
                             break;
+
+                        case "position_restore":
+                            var restore = JsonSerializer.Deserialize<PositionRestoreMessage>(line);
+                            if (restore != null)
+                            {
+                                HandlePositionRestore(restore);
+                            }
+                            break;
+
                         case "attack":
                             var attack = JsonSerializer.Deserialize<AttackMessage>(line);
                             if (attack != null)
@@ -342,7 +356,7 @@ namespace GameServer
                 BroadcastState();
             }
         }
-        private void BroadcastState()
+        public void BroadcastState()
         {
             StateMessage state;
             lock (locker)
@@ -390,6 +404,32 @@ namespace GameServer
 
             BroadcastState(); // broadcast world changes after attack
         }
+
+        private void HandlePositionRestore(PositionRestoreMessage msg)
+        {
+            lock (locker)
+            {
+                var player = Game.Instance.WorldFacade.GetPlayer(msg.PlayerId);
+                if (player == null) return;
+
+                Console.WriteLine($"[UNDO] Restoring player {msg.PlayerId} position from ({player.X}, {player.Y})");
+
+                if (msg.X != 0 || msg.Y != 0)
+                {
+                    player.X = msg.X;
+                    player.Y = msg.Y;
+                }
+                else if (lastPositions.TryGetValue(msg.PlayerId, out var lastPos))
+                {
+                    player.X = lastPos.x;
+                    player.Y = lastPos.y;
+                }
+            }
+
+            BroadcastState();
+        }
+
+
 
 
 

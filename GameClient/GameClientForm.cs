@@ -246,8 +246,19 @@ namespace GameClient
                 }
 
                 var (dx, dy) = _inputManager.GetMovementInput();
-                var walkCommand = new WalkCommand(_connection, _myId, dx, dy);
-                _commandInvoker.AddCommand(walkCommand);
+                var player = _entityManager.GetPlayerRenderer(_myId);
+                int currentX = 0, currentY = 0;
+                if (player != null)
+                {
+                    var pos = player.Position;
+                    currentX = (int)pos.X;
+                    currentY = (int)pos.Y;
+                }
+                if (dx != 0 || dy != 0)
+                {
+                    var walkCommand = new WalkCommand(_connection, _myId, dx, dy, currentX, currentY);
+                    _commandInvoker.AddCommand(walkCommand);
+                }
 
                 bool attackPressed = _inputManager.IsAttackPressed();
                 if (attackPressed)
@@ -342,7 +353,6 @@ namespace GameClient
                 ApplyTheme(nextMode, refreshSprites: true);
             }
 
-            // BRIDGE: F7 to cycle through renderers
             if (e.KeyCode == Keys.F7)
             {
                 _currentRendererMode = (_currentRendererMode + 1) % 3;
@@ -368,11 +378,41 @@ namespace GameClient
                 Console.WriteLine($"[BRIDGE] Switched to {modeName} renderer");
                 Invalidate();
             }
-            // F6 to cycle input adapters
+
             if (e.KeyCode == Keys.F6)
             {
                 _inputManager.CycleInputAdapter();
                 Console.WriteLine($"Input Method: {_inputManager.CurrentInputMethod}");
+            }
+
+            // ✅ NEW: F8 to toggle undo functionality
+            if (e.KeyCode == Keys.F8)
+            {
+                _commandInvoker.UndoEnabled = !_commandInvoker.UndoEnabled;
+                Console.WriteLine($"[UNDO] Undo system: {(_commandInvoker.UndoEnabled ? "ENABLED" : "DISABLED")}");
+
+                if (!_commandInvoker.UndoEnabled)
+                {
+                    _commandInvoker.ClearHistory(); // Clear history when disabling
+                }
+            }
+
+            // ✅ NEW: Ctrl+Z to undo last command
+            if (e.Control && e.KeyCode == Keys.Z)
+            {
+               
+
+                // 🧊 freeze input for a short time before sending undo
+                _lastInputSent = DateTime.UtcNow.AddMilliseconds(100);
+
+                _commandInvoker.UndoLastCommand();
+            }
+
+
+            // ✅ NEW: Ctrl+Shift+Z to clear undo history
+            if (e.Control && e.Shift && e.KeyCode == Keys.Z)
+            {
+                _commandInvoker.ClearHistory();
             }
         }
 
