@@ -48,6 +48,11 @@ namespace GameClient
         private int _currentRendererMode = 0; // 0=standard, 1=antialiased, 2=debug
         private readonly CursorRenderer _cursorRenderer;
 
+
+        // Introducing map caching to prevent movement lag
+        private Bitmap? _mapCache;
+        private bool _mapCacheDirty = true;
+
         public GameClientForm()
         {
             InitializeComponentMinimal();
@@ -215,6 +220,8 @@ namespace GameClient
 
             _map.SetTile(x, y, newTile);
             _tileManager.SetTile(newTile);
+
+            MarkMapCacheDirty(); // map caching
         }
 
         private void GameLoop(object? sender, EventArgs e)
@@ -249,20 +256,26 @@ namespace GameClient
             Invalidate();
         }
 
-
-
         private void GameClientForm_Paint(object? sender, PaintEventArgs e)
         {
-            _tileManager.DrawAll(e.Graphics);
+            //_tileManager.DrawAll(e.Graphics);
+            //_entityManager.DrawAll(e.Graphics);
+            //_animManager.DrawAll(e.Graphics);
+
+            //using var pen = new Pen(Color.Black, 1);
+            //for (int x = 0; x <= _map.Width; x++)
+            //    e.Graphics.DrawLine(pen, x * TileSize, 0, x * TileSize, _map.Height * TileSize);
+            //for (int y = 0; y <= _map.Height; y++)
+            //    e.Graphics.DrawLine(pen, 0, y * TileSize, _map.Width * TileSize, y * TileSize);
+
+            //_cursorRenderer.Draw(e.Graphics);
+
+            EnsureMapCache();
+            if (_mapCache != null)
+                e.Graphics.DrawImageUnscaled(_mapCache, 0, 0);
+            
             _entityManager.DrawAll(e.Graphics);
             _animManager.DrawAll(e.Graphics);
-
-            using var pen = new Pen(Color.Black, 1);
-            for (int x = 0; x <= _map.Width; x++)
-                e.Graphics.DrawLine(pen, x * TileSize, 0, x * TileSize, _map.Height * TileSize);
-            for (int y = 0; y <= _map.Height; y++)
-                e.Graphics.DrawLine(pen, 0, y * TileSize, _map.Width * TileSize, y * TileSize);
-            
             _cursorRenderer.Draw(e.Graphics);
         }
 
@@ -288,6 +301,7 @@ namespace GameClient
 
             SpriteRegistry.Clear();
             RegisterThemeSprites();
+            MarkMapCacheDirty(); // map caching
             RefreshPlayerRenderers();
             Invalidate();
         }
@@ -352,12 +366,51 @@ namespace GameClient
 
         protected override void Dispose(bool disposing)
         {
+            //if (disposing)
+            //{
+            //    _connection.Dispose();
+            //    _gameTimer.Dispose();
+            //}
+            //base.Dispose(disposing);
+
             if (disposing)
             {
                 _connection.Dispose();
                 _gameTimer.Dispose();
+                _mapCache?.Dispose();
+                _mapCache = null;
             }
             base.Dispose(disposing);
+        }
+
+
+        private void MarkMapCacheDirty() => _mapCacheDirty = true;
+
+        private void EnsureMapCache()
+        {
+            if (!_mapCacheDirty) return;
+            if (_map.Width == 0 || _map.Height == 0) return;
+
+            _mapCache?.Dispose();
+
+            _mapCache = new Bitmap(_map.Width * TileSize, _map.Height * TileSize);
+            using var g = Graphics.FromImage(_mapCache);
+
+            _tileManager.DrawAll(g);
+            DrawGrid(g);
+
+            _mapCacheDirty = false;
+        }
+
+        private void DrawGrid(Graphics g)
+        {
+            var gridColor = _uiPalette?.GridLineColor ?? Color.Black;
+            using var pen = new Pen(gridColor, 1);
+
+            for (int x = 0; x <= _map.Width; x++)
+                g.DrawLine(pen, x * TileSize, 0, x * TileSize, _map.Height * TileSize);
+            for (int y = 0; y <= _map.Height; y++)
+                g.DrawLine(pen, 0, y * TileSize, _map.Width * TileSize, y * TileSize);
         }
     }
 }
