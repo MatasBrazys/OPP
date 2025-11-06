@@ -47,6 +47,8 @@ namespace GameClient
         private IRenderer _debugRenderer;
         private int _currentRendererMode = 0; // 0=standard, 1=antialiased, 2=debug
         private readonly CursorRenderer _cursorRenderer;
+        private DateTime _lastInputSent = DateTime.MinValue;
+        private const int InputRateMs = 50; // Send input 20 times per second
 
 
         // Introducing map caching to prevent movement lag
@@ -90,10 +92,13 @@ namespace GameClient
 
             KeyDown += GameClientForm_KeyDown;
 
-            
+
+
+
             // this.MouseDown += (s, e) => Console.WriteLine($"[DEBUG] Form MouseDown: {e.Button} at ({e.X}, {e.Y})");
 
             _cursorRenderer = new CursorRenderer();
+
         }
 
         private void InitializeComponentMinimal()
@@ -230,29 +235,36 @@ namespace GameClient
 
             _inputManager.Update();
 
-            bool isGamepad = _inputManager.ActiveAdapter?.InputMethodName.Contains("Controller") ?? false;
-            _cursorRenderer.Visible = isGamepad;
-            if (isGamepad)
+            // Only send input at fixed intervals
+            if ((DateTime.UtcNow - _lastInputSent).TotalMilliseconds >= InputRateMs)
             {
-                _cursorRenderer.Position = _inputManager.GetAimPosition();
-            }
-            var (dx, dy) = _inputManager.GetMovementInput();
-            //Console.WriteLine($"[INPUT] Movement Input: dx={dx}, dy={dy}");
-            var walkCommand = new WalkCommand(_connection, _myId, dx, dy);
-            _commandInvoker.AddCommand(walkCommand);
-            bool attackPressed = _inputManager.IsAttackPressed();
-            if (attackPressed)
-            {
-                var pr = _entityManager.GetPlayerRenderer(_myId);
-                if (pr != null)
+                bool isGamepad = _inputManager.ActiveAdapter?.InputMethodName.Contains("Controller") ?? false;
+                _cursorRenderer.Visible = isGamepad;
+                if (isGamepad)
                 {
-                    var aimPos = _inputManager.GetAimPosition();
-                    var attackCommand = new AttackCommand(_connection, _myId, aimPos.X, aimPos.Y, "slash");
-                    _commandInvoker.AddCommand(attackCommand);
+                    _cursorRenderer.Position = _inputManager.GetAimPosition();
                 }
+
+                var (dx, dy) = _inputManager.GetMovementInput();
+                var walkCommand = new WalkCommand(_connection, _myId, dx, dy);
+                _commandInvoker.AddCommand(walkCommand);
+
+                bool attackPressed = _inputManager.IsAttackPressed();
+                if (attackPressed)
+                {
+                    var pr = _entityManager.GetPlayerRenderer(_myId);
+                    if (pr != null)
+                    {
+                        var aimPos = _inputManager.GetAimPosition();
+                        var attackCommand = new AttackCommand(_connection, _myId, aimPos.X, aimPos.Y, "slash");
+                        _commandInvoker.AddCommand(attackCommand);
+                    }
+                }
+
+                _commandInvoker.ExecuteCommands();
+                _lastInputSent = DateTime.UtcNow;
             }
 
-            _commandInvoker.ExecuteCommands();
             Invalidate();
         }
 
@@ -273,7 +285,7 @@ namespace GameClient
             EnsureMapCache();
             if (_mapCache != null)
                 e.Graphics.DrawImageUnscaled(_mapCache, 0, 0);
-            
+
             _entityManager.DrawAll(e.Graphics);
             _animManager.DrawAll(e.Graphics);
             _cursorRenderer.Draw(e.Graphics);
