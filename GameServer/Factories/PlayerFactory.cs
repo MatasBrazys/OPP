@@ -6,7 +6,7 @@ namespace GameServer.Factories
 {
     public class PlayerFactory : IPlayerFactory
     {
-        // ABSTRACT FACTORY (decoupled creation of players and made on the interface, product family concept exists)
+        // FACTORY (decoupled creation of players and made on the interface, product family concept exists)
         public PlayerRole CreatePlayer(string roleType, int id, int x, int y)
         {
             IPlayerBuilder builder = roleType.ToLower() switch

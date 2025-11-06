@@ -19,7 +19,6 @@ namespace GameServer
         public World World { get; private set; }
         public IPlayerFactory PlayerFactory { get; private set; }
         public IEnemyFactory EnemyFactory { get; private set; }
-        public GameObjectFactory GameObjectFactory { get; private set; }
         public GameWorldFacade WorldFacade { get; private set; }
 
         private Thread? _tickThread;
@@ -32,8 +31,7 @@ namespace GameServer
             World = new World();
             PlayerFactory = new PlayerFactory();
             EnemyFactory = new EnemyFactory();
-            GameObjectFactory = new GameObjectFactory();
-            WorldFacade = new GameWorldFacade(World, PlayerFactory, GameObjectFactory, EnemyFactory);
+            WorldFacade = new GameWorldFacade(World, PlayerFactory, EnemyFactory);
         }
 
         public void Start()

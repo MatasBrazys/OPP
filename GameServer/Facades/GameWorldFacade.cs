@@ -15,13 +15,11 @@ namespace GameServer.Facades
         private readonly IPlayerFactory _playerFactory;
         private readonly IEnemyFactory _enemyFactory;
 
-        private readonly GameObjectFactory _objectFactory;
 
-        public GameWorldFacade(World world, IPlayerFactory playerFactory, GameObjectFactory objectFactory, IEnemyFactory enemyFactory)
+        public GameWorldFacade(World world, IPlayerFactory playerFactory, IEnemyFactory enemyFactory)
         {
             _world = world;
             _playerFactory = playerFactory;
-            _objectFactory = objectFactory;
             _enemyFactory = enemyFactory;
         }
 
