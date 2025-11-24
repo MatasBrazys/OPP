@@ -1,94 +1,64 @@
-// File: GameServer/Combat/DefenderAttackStrategy.cs
+using GameServer.Combat.DamageHandlers;
+using GameShared;
+using GameShared.Messages;
+using GameShared.Types.Enemies;
+using GameShared.Types.Players;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using GameShared;
-using GameShared.Interfaces;
-using GameShared.Messages;
-using GameShared.Types.Players;
-using GameServer.Combat.DamageHandlers;
 
 namespace GameServer.Combat
 {
-    public class DefenderAttackStrategy : IAttackStrategy
+    public class DefenderAttackStrategy : AttackTemplate
     {
         private const int BaseDamage = 10;
-        private static readonly float AttackRangePx = GameConstants.TILE_SIZE; 
-        private const float MaxVisualDistancePx = 128f;                        
-        private const float SlashAngleDeg = 90f;                                
-        private static readonly TimeSpan Cooldown = TimeSpan.FromMilliseconds(600);
+        private static readonly float AttackRangePx = GameConstants.TILE_SIZE;
+        private static readonly float SlashAngleDeg = 90f;
 
-        private readonly Dictionary<int, DateTime> lastAttackTimes = new();
-        
-        // ✅ CHAIN OF RESPONSIBILITY: Damage calculation chain
+        // Chain of Responsibility for damage
         private readonly IDamageHandler _damageChain;
+
+        // Store last attack times per player
+        private readonly Dictionary<int, DateTime> _lastAttackTimes = new();
 
         public DefenderAttackStrategy()
         {
-            // Build the damage chain using the builder
             _damageChain = DamageChainBuilder.CreateStandardChain();
-            
             Console.WriteLine("✅ [DEFENDER] Damage chain initialized with standard configuration");
         }
 
-        public void ExecuteAttack(PlayerRole player, AttackMessage msg)
+        protected override bool CanAttack(PlayerRole player)
         {
-            if (player == null || msg == null) return;
+            if (!_lastAttackTimes.TryGetValue(player.Id, out var last))
+                last = DateTime.MinValue;
 
-            if (lastAttackTimes.TryGetValue(player.Id, out var last) && 
-                (DateTime.UtcNow - last) < Cooldown)
+            if ((DateTime.UtcNow - last) < TimeSpan.FromMilliseconds(600))
             {
-                return;
+                Console.WriteLine($"❌ [COOLDOWN] Defender {player.Id} cannot attack yet");
+                return false;
             }
 
-            lastAttackTimes[player.Id] = DateTime.UtcNow;
+            return true;
+        }
 
+        protected override void StartCooldown(PlayerRole player)
+        {
+            _lastAttackTimes[player.Id] = DateTime.UtcNow;
+            Console.WriteLine($"🕑 [COOLDOWN] Defender {player.Id} attack cooldown started");
+        }
+
+        protected override IEnumerable<Enemy> SelectTargets(PlayerRole player, AttackMessage msg)
+        {
             float px = player.X + GameConstants.PLAYER_SIZE / 2f;
             float py = player.Y + GameConstants.PLAYER_SIZE / 2f;
             float clickX = msg.ClickX;
             float clickY = msg.ClickY;
 
-            float vx = clickX - px;
-            float vy = clickY - py;
-            float dist = (float)Math.Sqrt(vx * vx + vy * vy);
+            double playerAngle = Math.Atan2(clickY - py, clickX - px) * 180.0 / Math.PI;
 
-            float animX, animY;
-            if (dist <= MaxVisualDistancePx && dist > 0f)
-            {
-                animX = clickX;
-                animY = clickY;
-            }
-            else if (dist > 0f)
-            {
-                float factor = MaxVisualDistancePx / dist;
-                animX = px + vx * factor;
-                animY = py + vy * factor;
-            }
-            else
-            {
-                animX = px + MaxVisualDistancePx * 0.5f;
-                animY = py;
-            }
+            var enemies = Game.Instance.WorldFacade.GetAllEnemies();
 
-            double playerAngle = Math.Atan2(animY - py, animX - px) * 180.0 / Math.PI;
-
-            var anim = new AttackAnimationMessage
-            {
-                AttackType = "slash",
-                PlayerId = player.Id,
-                AnimX = animX,
-                AnimY = animY,
-                Direction = playerAngle.ToString("F1"),
-                Radius = MaxVisualDistancePx
-            };
-            Game.Instance.Server.BroadcastToAll(anim);
-
-            var enemies = Game.Instance.WorldFacade.GetAllEnemies().ToList();
-            int hits = 0;
-
-            Console.WriteLine($"\n🗡️ [DEFENDER ATTACK] Player {player.Id} slashing at angle {playerAngle:F1}°");
-
-            foreach (var e in enemies)
+            var targets = enemies.Where(e =>
             {
                 float ex = e.X + GameConstants.ENEMY_SIZE / 2f;
                 float ey = e.Y + GameConstants.ENEMY_SIZE / 2f;
@@ -96,49 +66,44 @@ namespace GameServer.Combat
                 float dy = ey - py;
                 float distanceToEnemy = (float)Math.Sqrt(dx * dx + dy * dy);
 
-                if (distanceToEnemy > AttackRangePx)
-                    continue;
+                if (distanceToEnemy > AttackRangePx) return false;
 
                 double angleToEnemy = Math.Atan2(dy, dx) * 180.0 / Math.PI;
                 double diff = Math.Abs(NormalizeAngle(angleToEnemy - playerAngle));
 
-                if (diff <= SlashAngleDeg / 2f)
-                {
-                    // ✅ USE CHAIN OF RESPONSIBILITY for damage calculation
-                    var context = new DamageContext(BaseDamage, player, e, "slash");
-                    var result = _damageChain.HandleDamage(context);
+                return diff <= SlashAngleDeg / 2f;
+            }).ToList();
 
-                    e.Health -= result.FinalDamage;
-                    hits++;
-
-                    Console.WriteLine($"\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-                    Console.WriteLine($"💥 HIT #{hits}");
-                    Console.WriteLine($"   Attacker: {player.RoleType} (ID: {player.Id})");
-                    Console.WriteLine($"   Target: {e.EnemyType} (ID: {e.Id})");
-                    Console.WriteLine($"   Base Damage: {BaseDamage}");
-                    Console.WriteLine($"   Final Damage: {result.FinalDamage}");
-                    Console.WriteLine($"   HP: {e.Health + result.FinalDamage}/{e.MaxHealth} → {e.Health}/{e.MaxHealth}");
-                    
-                    if (result.EffectsApplied.Count > 0)
-                    {
-                        Console.WriteLine($"   Effects Applied:");
-                        foreach (var effect in result.EffectsApplied)
-                        {
-                            Console.WriteLine($"      • {effect}");
-                        }
-                    }
-                    Console.WriteLine($"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
-
-                    if (e.Health <= 0)
-                    {
-                        Console.WriteLine($"☠️ [DEATH] Enemy {e.Id} ({e.EnemyType}) was slain by Defender {player.Id}!");
-                        Game.Instance.WorldFacade.RemoveEnemy(e);
-                    }
-                }
+            if (!targets.Any())
+            {
+                Console.WriteLine($"❌ [MISS] Defender {player.Id} slashed at ({clickX:F1},{clickY:F1}) — no hits.");
+            }
+            else
+            {
+                Console.WriteLine($"🗡️ [DEFENDER ATTACK] Player {player.Id} slashing at angle {playerAngle:F1}°, targets: {targets.Count}");
             }
 
-            if (hits == 0)
-                Console.WriteLine($"❌ [MISS] Defender {player.Id} slashed at ({animX:F1},{animY:F1}) angle={playerAngle:F1}° — no hits.\n");
+            return targets;
+        }
+
+        // Calculate damage using chain of responsibility
+        protected override int CalculateDamage(PlayerRole player, Enemy enemy)
+        {
+            var context = new DamageContext(BaseDamage, player, enemy, "slash");
+            var result = _damageChain.HandleDamage(context);
+
+            Console.WriteLine($"💥 [HIT] Defender {player.Id} → Enemy {enemy.Id}: Base={BaseDamage}, Final={result.FinalDamage}, HP={enemy.Health}->{enemy.Health - result.FinalDamage}");
+
+            return result.FinalDamage;
+        }
+
+        protected override void OnHit(PlayerRole player, Enemy enemy)
+        {
+            if (enemy.Health <= 0)
+            {
+                Console.WriteLine($"☠️ [DEATH] Enemy {enemy.Id} ({enemy.EnemyType}) slain by Defender {player.Id}");
+                Game.Instance.WorldFacade.RemoveEnemy(enemy);
+            }
         }
 
         private static double NormalizeAngle(double angle)
@@ -147,5 +112,28 @@ namespace GameServer.Combat
             if (angle < 0) angle += 360.0;
             return angle > 180.0 ? 360.0 - angle : angle;
         }
+
+        protected override void BroadcastAttackAnimation(PlayerRole player, AttackMessage msg)
+        {
+            float px = player.X + GameConstants.PLAYER_SIZE / 2f;
+            float py = player.Y + GameConstants.PLAYER_SIZE / 2f;
+            float clickX = msg.ClickX;
+            float clickY = msg.ClickY;
+
+            double playerAngle = Math.Atan2(clickY - py, clickX - px) * 180.0 / Math.PI;
+
+            var anim = new AttackAnimationMessage
+            {
+                PlayerId = player.Id,
+                AttackType = "slash",
+                AnimX = clickX,
+                AnimY = clickY,
+                Direction = playerAngle.ToString("F1"),
+                Radius = AttackRangePx
+            };
+
+            Game.Instance.Server.BroadcastToAll(anim);
+        }
+
     }
 }
