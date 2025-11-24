@@ -1,3 +1,4 @@
+// ./gameclient/commands/AttackCommand.cs
 using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
@@ -32,7 +33,17 @@ public class AttackCommand : IGameCommand
             AttackType = _attackType
         };
 
-        var json = JsonSerializer.Serialize(msg) ;
+        var json = JsonSerializer.Serialize(msg);
         _connection.SendRaw(json);
+    }
+
+    public void Undo()
+    {
+        // TODO: Implement attack undo
+        // Possible approaches:
+        // 1. Restore HP to damaged enemies (requires server-side undo support)
+        // 2. Reverse animation (cosmetic only)
+        // 3. Send "undo_attack" message to server with original attack data
+        Console.WriteLine($"[UNDO] Attack undo not implemented (would reverse attack at {_clickX}, {_clickY})");
     }
 }

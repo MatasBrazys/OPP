@@ -81,6 +81,7 @@ namespace GameServer
         public void Tick(int dt)
         {
             WorldFacade.UpdateWorld();
+            Server.BroadcastState();
         }
 
         public void Stop()

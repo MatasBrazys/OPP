@@ -1,24 +1,27 @@
 // ./GameClient/Commands/WalkCommand.cs
-using System.Data;
-using System.Net.Sockets;
-using System.Text;
 using System.Text.Json;
 using GameClient.Networking;
 using GameShared.Messages;
 
 public class WalkCommand : IGameCommand
 {
-    private readonly ServerConnection connection;
-    private readonly int playerId;
-    private readonly float dx;
-    private readonly float dy;
+    private readonly ServerConnection _connection;
+    private readonly int _playerId;
+    private readonly int _dx;
+    private readonly int _dy;
+    private readonly int _previousX;
+    private readonly int _previousY;
 
-    public WalkCommand(ServerConnection connection, int playerId, float dx, float dy)
+    public WalkCommand(ServerConnection connection, int playerId, float dx, float dy, int currentX, int currentY)
     {
-        this.connection = connection ;
-        this.playerId = playerId;
-        this.dx = dx;
-        this.dy = dy;
+        _connection = connection;
+        _playerId = playerId;
+        _dx = (int)Math.Round(dx);
+        _dy = (int)Math.Round(dy);
+
+        // Store position BEFORE movement (the position before sending input)
+        _previousX = currentX;
+        _previousY = currentY;
     }
 
     public void Execute()
@@ -26,12 +29,24 @@ public class WalkCommand : IGameCommand
         var msg = new InputMessage
         {
             Type = "input",
-            Dx = (int)Math.Round(dx),
-            Dy = (int)Math.Round(dy)
+            Dx = _dx,
+            Dy = _dy
         };
-
-        var json = JsonSerializer.Serialize(msg);
-        connection.SendRaw(json);
-       
+        _connection.SendRaw(JsonSerializer.Serialize(msg));
     }
+
+    public void Undo()
+    {
+        var msg = new PositionRestoreMessage
+        {
+            Type = "position_restore",
+            PlayerId = _playerId,
+            X = _previousX,
+            Y = _previousY
+        };
+        _connection.SendRaw(JsonSerializer.Serialize(msg));
+        Console.WriteLine($"[UNDO] Requested undo for player {_playerId} → {_previousX},{_previousY}");
+    }
+
+
 }
