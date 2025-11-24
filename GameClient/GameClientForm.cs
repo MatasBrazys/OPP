@@ -13,6 +13,7 @@ using GameShared.Types.DTOs;
 using GameShared;
 using GameClient.Theming;
 using GameClient.Rendering.Bridge;
+using GameClient.Rendering.Flyweight;
 
 namespace GameClient
 {
@@ -111,6 +112,7 @@ namespace GameClient
 
         private void GameClientForm_Load(object? sender, EventArgs e)
         {
+            PerformanceBenchmark.RunBenchmark(entityCount: 100); // Run benchmark
             _connection.Connect();
         }
 
@@ -400,7 +402,7 @@ namespace GameClient
             // ✅ NEW: Ctrl+Z to undo last command
             if (e.Control && e.KeyCode == Keys.Z)
             {
-               
+
 
                 // 🧊 freeze input for a short time before sending undo
                 _lastInputSent = DateTime.UtcNow.AddMilliseconds(100);
@@ -413,6 +415,10 @@ namespace GameClient
             if (e.Control && e.Shift && e.KeyCode == Keys.Z)
             {
                 _commandInvoker.ClearHistory();
+            }
+            if (e.KeyCode == Keys.F9)
+            {
+                SpriteCache.Instance.PrintReport();
             }
         }
 

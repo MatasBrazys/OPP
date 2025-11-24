@@ -1,31 +1,57 @@
 // ./GameClient/Managers/SpriteManager.cs
+using System.Diagnostics;
 using System.Drawing;
 using GameClient.Rendering;
+using GameClient.Rendering.Flyweight;
 
 namespace GameClient.Managers
 {
+    /// <summary>
+    /// Updated SpriteManager using Flyweight pattern
+    /// </summary>
     public static class SpriteManager
     {
-        // Thin wrapper around your SpriteRegistry usage for a central spot to load assets.
         public static void RegisterDefaultSprites()
         {
-            SpriteRegistry.Register("Grass", Image.FromFile("../assets/grass.png"));
-            SpriteRegistry.Register("Tree", Image.FromFile("../assets/tree.png"));
-            SpriteRegistry.Register("House", Image.FromFile("../assets/house.png"));
-            SpriteRegistry.Register("Apple", Image.FromFile("../assets/apple.png"));
-            SpriteRegistry.Register("Fish", Image.FromFile("../assets/fish.png"));
-            SpriteRegistry.Register("Water", Image.FromFile("../assets/water.png"));
-            SpriteRegistry.Register("Sand", Image.FromFile("../assets/sand.png"));
-            SpriteRegistry.Register("Cherry", Image.FromFile("../assets/cherry.jpg"));
+            var stopwatch = Stopwatch.StartNew();
+            long memoryBefore = GC.GetTotalMemory(true);
 
-            SpriteRegistry.Register("Mage", Image.FromFile("../assets/mage.png"));
-            SpriteRegistry.Register("Hunter", Image.FromFile("../assets/hunter.png"));
-            SpriteRegistry.Register("Defender", Image.FromFile("../assets/defender.png"));
+            // Load tiles using flyweight
+            SpriteRegistry.Register("Grass", 
+                SpriteLoader.LoadSprite("../assets/grass.png").Image);
+            SpriteRegistry.Register("Tree", 
+                SpriteLoader.LoadSprite("../assets/tree.png").Image);
+            SpriteRegistry.Register("House", 
+                SpriteLoader.LoadSprite("../assets/house.png").Image);
+            SpriteRegistry.Register("Apple", 
+                SpriteLoader.LoadSprite("../assets/apple.png").Image);
+            SpriteRegistry.Register("Fish", 
+                SpriteLoader.LoadSprite("../assets/fish.png").Image);
+            SpriteRegistry.Register("Water", 
+                SpriteLoader.LoadSprite("../assets/water.png").Image);
+            SpriteRegistry.Register("Sand", 
+                SpriteLoader.LoadSprite("../assets/sand.png").Image);
+            SpriteRegistry.Register("Cherry", 
+                SpriteLoader.LoadSprite("../assets/cherry.jpg").Image);
 
-            SpriteRegistry.Register("Slime", Image.FromFile("../assets/slime.png"));
+            // Load players
+            SpriteRegistry.Register("Mage", 
+                SpriteLoader.LoadSprite("../assets/mage.png").Image);
+            SpriteRegistry.Register("Hunter", 
+                SpriteLoader.LoadSprite("../assets/hunter.png").Image);
+            SpriteRegistry.Register("Defender", 
+                SpriteLoader.LoadSprite("../assets/defender.png").Image);
 
-            // optional: register effect sprites like slash, arrow, fireball if present
-            
+            // Load enemies
+            SpriteRegistry.Register("Slime", 
+                SpriteLoader.LoadSprite("../assets/slime.png").Image);
+
+            stopwatch.Stop();
+            long memoryAfter = GC.GetTotalMemory(true);
+            long memoryUsed = memoryAfter - memoryBefore;
+
+            Console.WriteLine($"\n⏱️ [PERFORMANCE] Sprite loading completed in {stopwatch.ElapsedMilliseconds}ms");
+            Console.WriteLine($"💾 [MEMORY] Estimated memory used: {memoryUsed / 1024.0:F2} KB");
         }
     }
 }
