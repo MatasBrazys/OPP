@@ -13,7 +13,7 @@ namespace GameClient.Rendering
         private float _prevX, _prevY;
         private float _targetX, _targetY;
         private DateTime _lastUpdateUtc;
-        private readonly Image _sprite;
+        private  Image _sprite;
         private const double InterpolationMs = 150.0;
         public float CenterX => _targetX + 20;
         public float CenterY => _targetY + 20;
@@ -25,7 +25,7 @@ namespace GameClient.Rendering
         // BRIDGE PATTERN: Use IRenderer
         private IRenderer _renderer;
 
-        public EnemyRenderer(int id, string enemyType, int startX, int startY, Image sprite, 
+        public EnemyRenderer(int id, string enemyType, int startX, int startY, Image sprite,
                            int currentHP, int maxHP, IRenderer? renderer = null)
         {
             Id = id;
@@ -36,7 +36,7 @@ namespace GameClient.Rendering
             _sprite = sprite;
             CurrentHP = currentHP;
             MaxHP = maxHP;
-            
+
             // BRIDGE: Default to StandardRenderer
             _renderer = renderer ?? new StandardRenderer();
         }
@@ -64,7 +64,7 @@ namespace GameClient.Rendering
             float drawY = _prevY + (_targetY - _prevY) * t;
 
             int size = GameConstants.ENEMY_SIZE;
-            
+
             // BRIDGE: Use renderer for sprite
             _renderer.DrawSprite(g, _sprite, drawX, drawY, size, size);
 
@@ -73,7 +73,7 @@ namespace GameClient.Rendering
 
             // Label (enemy name)
             using var font = new Font(SystemFonts.DefaultFont.FontFamily, 7, FontStyle.Bold);
-            
+
             // BRIDGE: Use renderer for text
             _renderer.DrawText(g, $"{EnemyType} ({Id})", font, Color.Black, drawX, drawY - 25);
         }
@@ -102,6 +102,7 @@ namespace GameClient.Rendering
             _renderer.DrawText(g, hpText, font, Color.Black, textX, textY);
         }
 
-        
+
+
     }
 }

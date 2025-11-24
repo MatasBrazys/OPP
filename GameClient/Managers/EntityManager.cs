@@ -13,7 +13,7 @@ namespace GameClient.Managers
         private readonly Dictionary<int, PlayerRenderer> _players = new();
         private readonly Dictionary<int, EnemyRenderer> _enemies = new();
         private Image _defaultEnemySprite;
-        
+
         // BRIDGE: Store current renderer mode
         private IRenderer _currentRenderer;
 
@@ -27,13 +27,13 @@ namespace GameClient.Managers
         public void SetRenderer(IRenderer renderer)
         {
             _currentRenderer = renderer ?? throw new System.ArgumentNullException(nameof(renderer));
-            
+
             lock (_players)
             {
                 foreach (var pr in _players.Values)
                     pr.SetRenderer(_currentRenderer);
             }
-            
+
             lock (_enemies)
             {
                 foreach (var er in _enemies.Values)
@@ -56,9 +56,9 @@ namespace GameClient.Managers
                     {
                         var sprite = SpriteRegistry.GetSprite(ps.RoleType);
                         var isLocal = ps.Id == localPlayerId;
-                        
+
                         // BRIDGE: Pass renderer to constructor
-                        var renderer = new PlayerRenderer(ps.Id, ps.RoleType, ps.X, ps.Y, sprite, 
+                        var renderer = new PlayerRenderer(ps.Id, ps.RoleType, ps.X, ps.Y, sprite,
                                                          isLocal, Color.Black, Color.Blue, _currentRenderer);
                         _players[ps.Id] = renderer;
                     }
@@ -83,9 +83,9 @@ namespace GameClient.Managers
                     if (!_enemies.TryGetValue(es.Id, out var existing))
                     {
                         var sprite = SpriteRegistry.GetSprite(es.EnemyType) ?? _defaultEnemySprite;
-                        
+
                         // BRIDGE: Pass renderer to constructor
-                        var renderer = new EnemyRenderer(es.Id, es.EnemyType, es.X, es.Y, sprite, 
+                        var renderer = new EnemyRenderer(es.Id, es.EnemyType, es.X, es.Y, sprite,
                                                         es.Health, es.MaxHealth, _currentRenderer);
                         _enemies[es.Id] = renderer;
                     }
@@ -132,5 +132,6 @@ namespace GameClient.Managers
                 return _players.Values.ToList();
             }
         }
+
     }
 }

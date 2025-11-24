@@ -1,8 +1,9 @@
-// File: GameClient/Rendering/PlayerRenderer.cs (MODIFIED VERSION)
+// File: GameClient/Rendering/PlayerRenderer.cs (MODIFIED - with animation)
 using System;
 using System.Drawing;
 using GameShared;
 using GameClient.Rendering.Bridge;
+using GameClient.Animation;
 
 namespace GameClient.Rendering
 {
@@ -19,7 +20,11 @@ namespace GameClient.Rendering
         private Color _localPlayerRingColor;
         private const double InterpolationMs = 100.0;
 
-        // BRIDGE PATTERN: Use IRenderer instead of direct Graphics calls
+        // ✨ NEW: Animation controller
+        private readonly WalkAnimationController _animController;
+        private float _lastDx = 0;
+        private float _lastDy = 0;
+
         private IRenderer _renderer;
 
         public PlayerRenderer(int id, string role, int startX, int startY, Image sprite, 
@@ -35,12 +40,12 @@ namespace GameClient.Rendering
             _isLocalPlayer = isLocalPlayer;
             _labelColor = labelColor;
             _localPlayerRingColor = localPlayerRingColor;
-            
-            // BRIDGE: Default to StandardRenderer if none provided
             _renderer = renderer ?? new StandardRenderer();
+            
+            // ✨ Initialize animation controller
+            _animController = new WalkAnimationController();
         }
 
-        // BRIDGE: Allow changing renderer at runtime
         public void SetRenderer(IRenderer renderer)
         {
             _renderer = renderer ?? throw new ArgumentNullException(nameof(renderer));
@@ -48,7 +53,8 @@ namespace GameClient.Rendering
 
         public void UpdateTheme(Image sprite, Color labelColor, Color localPlayerRingColor)
         {
-            _sprite = sprite;
+            // Keep static sprite as fallback but don't use it for theme changes
+            // Animation sprites are loaded separately and should not be affected by theme
             _labelColor = labelColor;
             _localPlayerRingColor = localPlayerRingColor;
         }
@@ -60,6 +66,12 @@ namespace GameClient.Rendering
             _targetX = x;
             _targetY = y;
             _lastUpdateUtc = DateTime.UtcNow;
+
+            // ✨ Calculate movement direction for animation
+            float dx = _targetX - _prevX;
+            float dy = _targetY - _prevY;
+            _lastDx = dx;
+            _lastDy = dy;
         }
 
         public (float X, float Y) Position
@@ -81,16 +93,27 @@ namespace GameClient.Rendering
             float drawX = _prevX + (_targetX - _prevX) * t;
             float drawY = _prevY + (_targetY - _prevY) * t;
 
+            // ✨ Update animation based on movement
+            _animController.Update(_lastDx, _lastDy);
+
+            // ✨ Get animated sprite
+            string animatedSpriteName = _animController.GetCurrentSpriteName(Role);
+            Image currentSprite = SpriteRegistry.GetSprite(animatedSpriteName);
+            
+            // Fallback to static sprite if animation not found
+            if (currentSprite == null || currentSprite.Width == GameConstants.TILE_SIZE)
+            {
+                currentSprite = _sprite;
+            }
+
             int playerSize = GameConstants.PLAYER_SIZE;
             
-            // BRIDGE: Use renderer instead of direct g.DrawImage
-            _renderer.DrawSprite(g, _sprite, drawX, drawY, playerSize, playerSize);
+            // Draw animated sprite
+            _renderer.DrawSprite(g, currentSprite, drawX, drawY, playerSize, playerSize);
 
             // Draw ID and role
             string label = $"{Role} (ID:{Id})";
             using var font = new Font(SystemFonts.DefaultFont.FontFamily, 8, FontStyle.Bold);
-            
-            // BRIDGE: Use renderer for text
             _renderer.DrawText(g, label, font, _labelColor, drawX, drawY - 16);
 
             // Draw range indicator for local player
@@ -117,7 +140,6 @@ namespace GameClient.Rendering
                         break;
                 }
 
-                // BRIDGE: Use renderer for shapes
                 using var pen = new Pen(_localPlayerRingColor, 1.5f);
                 g.DrawEllipse(pen, centerX - radius, centerY - radius, radius * 2f, radius * 2f);
             }

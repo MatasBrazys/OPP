@@ -14,6 +14,7 @@ using GameShared;
 using GameClient.Theming;
 using GameClient.Rendering.Bridge;
 using GameClient.Rendering.Flyweight;
+using GameClient.Animation;
 
 namespace GameClient
 {
@@ -26,6 +27,7 @@ namespace GameClient
         private readonly AnimationManager _animManager;
         private readonly InputManager _inputManager;
         private readonly CommandInvoker _commandInvoker;
+       
 
         private int _myId;
         private readonly System.Windows.Forms.Timer _gameTimer;
@@ -92,6 +94,7 @@ namespace GameClient
             _gameTimer.Start();
 
             KeyDown += GameClientForm_KeyDown;
+            WalkSpriteLoader.LoadAllRoleAnimations("../assets/animations/");
 
 
 

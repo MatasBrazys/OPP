@@ -66,6 +66,7 @@ namespace GameServer
                     }
 
                     role = available[Random.Shared.Next(available.Count)];
+                    
                     id = nextId++;
                     clients[id] = client;
                     clientRoles[id] = role;
