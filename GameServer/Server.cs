@@ -13,8 +13,6 @@ using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
 using GameServer.Collision;
-
-
 using GameShared;
 
 namespace GameServer
@@ -31,16 +29,12 @@ namespace GameServer
         private static readonly object _cherriesLock = new object();
         private static HashSet<(int x, int y)> eatenCherries = new HashSet<(int x, int y)>();
 
-        static readonly string[] AllRoles = new[] { "mage", "defender", "hunter" };//"hunter"
+        static readonly string[] AllRoles = new[] { "mage", "defender", "hunter" };
         private static readonly NormalMovement DefaultMovementStrategy = new();
-        // Logging decorator switch
         private const bool EnableTileLogging = false;
 
         private CollisionDetector _collisionDetector;
         private List<CommandHandler> _commandHandlers;
-
-        private static readonly Dictionary<int, (int x, int y)> lastPositions = new();
-
 
         public void Start(int port)
         {
@@ -61,23 +55,17 @@ namespace GameServer
                 string role;
                 lock (locker)
                 {
-                    // Determine available roles (those not currently used)
                     var used = clientRoles.Values.ToHashSet(StringComparer.OrdinalIgnoreCase);
                     var available = AllRoles.Where(r => !used.Contains(r)).ToList();
 
                     if (available.Count == 0)
                     {
-                        // Max 3 players already connected
                         SendMessage(client, new ErrorMessage { Code = "server_full", Detail = "All roles are taken." });
                         client.Close();
                         continue;
                     }
 
-                    // Pick a random role from the remaining ones
-
                     role = available[Random.Shared.Next(available.Count)];
-                    // role = "hunter"; // temporarily force 
-
                     id = nextId++;
                     clients[id] = client;
                     clientRoles[id] = role;
@@ -91,6 +79,7 @@ namespace GameServer
                 thread.Start();
             }
         }
+
         private void InitializeCommandHandlers()
         {
             _commandHandlers = new List<CommandHandler>
@@ -106,18 +95,23 @@ namespace GameServer
 
         private void HandleInput(int id, InputMessage input)
         {
+            // ✅ FIX 1: Skip if no movement
+            if (input.Dx == 0 && input.Dy == 0)
+                return;
+
             lock (locker)
             {
                 var player = Game.Instance.WorldFacade.GetPlayer(id);
                 if (player == null) return;
 
-                // 🧠 Save last position BEFORE movement
-                lastPositions[id] = (player.X, player.Y);
-                
+                int oldX = player.X;
+                int oldY = player.Y;
+
                 int newX = player.X + input.Dx * player.GetSpeed();
                 int newY = player.Y + input.Dy * player.GetSpeed();
 
                 var result = Game.Instance.WorldFacade.TryMovePlayer(id, newX, newY);
+
                 if (result != null)
                 {
                     ApplyTileEnterResult(player, player.X / GameConstants.TILE_SIZE, player.Y / GameConstants.TILE_SIZE, result);
@@ -125,11 +119,11 @@ namespace GameServer
 
                 var players = Game.Instance.WorldFacade.GetAllPlayers();
                 _collisionDetector.CheckCollisions(players);
+
+                // ✅ FIX 2: REMOVED BroadcastState() - only Game.Tick() broadcasts now
+                // Movement updates happen every 50ms via BroadcastState() in Game.Tick()
             }
-
-            BroadcastState();
         }
-
 
         private void ApplyTileEnterResult(PlayerRole player, int tileX, int tileY, TileEnterResult result)
         {
@@ -186,10 +180,14 @@ namespace GameServer
             {
                 Console.WriteLine($"Could not find client for player {originalPlayer.Id}");
             }
+            
+            // ✅ Keep: Immediate broadcast needed for new entity
             BroadcastState();
+            
             originalPlayer.TestDeepCopy();
             Console.WriteLine($"Created clone {clone.Id} from player {originalPlayer.Id} with {clone.GetType().Name} role");
         }
+
         private int GetNextPlayerId()
         {
             lock (idLock)
@@ -197,32 +195,33 @@ namespace GameServer
                 return nextPlayerId++;
             }
         }
+
         public void OnGameEvent(GameEvent gameEvent)
         {
-            // Server-level handling of game events
             Console.WriteLine($"Server received event: {gameEvent.EventType} at {gameEvent.Timestamp}");
 
             if (gameEvent is CollisionEvent collision)
             {
-                // Server-wide collision handling (logging, analytics, etc.)
                 LogCollision(collision);
             }
         }
+
         private void LogCollision(CollisionEvent collision)
         {
-            // Log collision for analytics or debugging
             var logEntry = $"{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss} - Collision: {collision.Entity1Id}({collision.Entity1Type}) vs {collision.Entity2Id}({collision.Entity2Type}) at ({collision.X:F1}, {collision.Y:F1})";
             Console.WriteLine(logEntry);
         }
 
         public void BroadcastToAll<T>(T message)
         {
-            foreach (var client in clients.Values)
+            lock (locker)
             {
-                SendMessage(client, message);
+                foreach (var client in clients.Values)
+                {
+                    SendMessage(client, message);
+                }
             }
         }
-
 
         private void SendStateTo(TcpClient client)
         {
@@ -239,6 +238,7 @@ namespace GameServer
             SendMessage(client, snapshot);
             SendCurrentMapStateTo(client);
         }
+
         private void SendCurrentMapStateTo(TcpClient client)
         {
             var (width, height) = Game.Instance.WorldFacade.GetMapSize();
@@ -290,7 +290,6 @@ namespace GameServer
             {
                 while (client.Connected && (line = reader.ReadLine()) != null)
                 {
-                    // Console.WriteLine($"Received from client {id}: {line}");
                     var doc = JsonDocument.Parse(line);
                     var type = doc.RootElement.GetProperty("Type").GetString();
                     switch (type)
@@ -299,25 +298,14 @@ namespace GameServer
                             var input = JsonSerializer.Deserialize<InputMessage>(line);
                             HandleInput(id, input);
                             break;
-
-                        case "position_restore":
-                            var restore = JsonSerializer.Deserialize<PositionRestoreMessage>(line);
-                            if (restore != null)
-                            {
-                                HandlePositionRestore(restore);
-                            }
-                            break;
-
                         case "attack":
                             var attack = JsonSerializer.Deserialize<AttackMessage>(line);
                             if (attack != null)
                             {
-                                // Ensure we set PlayerId if not present:
                                 if (attack.PlayerId == 0) attack.PlayerId = id;
                                 OnReceiveAttack(attack);
                             }
                             break;
-
                         case "ping":
                             var ping = JsonSerializer.Deserialize<PingMessage>(line);
                             SendMessage(client, new PongMessage { T = ping.T });
@@ -353,85 +341,80 @@ namespace GameServer
 
                     clientRoles.Remove(id);
                 }
+                
+                // ✅ Keep: Immediate broadcast needed when player disconnects
                 BroadcastState();
             }
         }
+
+        // Called by Game.Tick() every 50ms
         public void BroadcastState()
         {
             StateMessage state;
             lock (locker)
             {
                 var worldPlayers = Game.Instance.WorldFacade.GetAllPlayers();
-                //Console.WriteLine($"BroadcastState: World has {worldPlayers.Count} players");
 
                 state = new StateMessage
                 {
                     ServerTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
-                    Players = Game.Instance.WorldFacade.GetAllPlayers()
-                        .Select(p => new PlayerDto { Id = p.Id, X = p.X, Y = p.Y, Health = p.Health, RoleType = p.RoleType, RoleColor = p.RoleColor.Name })
+                    Players = worldPlayers
+                        .Select(p => new PlayerDto
+                        {
+                            Id = p.Id,
+                            X = p.X,
+                            Y = p.Y,
+                            Health = p.Health,
+                            RoleType = p.RoleType,
+                            RoleColor = p.RoleColor.Name
+                        })
                         .ToList(),
                     Enemies = Game.Instance.WorldFacade.GetAllEnemies()
-                        .Select(e => new EnemyDto { Id = e.Id, EnemyType = e.EnemyType, X = e.X, Y = e.Y, Health = e.Health, MaxHealth = e.MaxHealth })
+                        .Select(e => new EnemyDto
+                        {
+                            Id = e.Id,
+                            EnemyType = e.EnemyType,
+                            X = e.X,
+                            Y = e.Y,
+                            Health = e.Health,
+                            MaxHealth = e.MaxHealth
+                        })
                         .ToList()
                 };
             }
 
-            //Console.WriteLine($"Broadcasting state with {state.Players.Count} players to {clients.Count} clients");
-            foreach (var clientId in clients.Keys)
+            lock (locker)
             {
-                //Console.WriteLine($"Sending to client {clientId}");
-            }
-
-            foreach (var client in clients.Values)
-            {
-                SendMessage(client, state);
+                foreach (var client in clients.Values)
+                {
+                    SendMessage(client, state);
+                }
             }
         }
 
         private void SendMessage<T>(TcpClient client, T msg)
         {
-            var json = System.Text.Json.JsonSerializer.Serialize(msg) + "\n";
-            var bytes = System.Text.Encoding.UTF8.GetBytes(json);
-            client.GetStream().Write(bytes, 0, bytes.Length);
+            try
+            {
+                var json = System.Text.Json.JsonSerializer.Serialize(msg) + "\n";
+                var bytes = System.Text.Encoding.UTF8.GetBytes(json);
+                client.GetStream().Write(bytes, 0, bytes.Length);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error sending message: {ex.Message}");
+            }
         }
+
         public void OnReceiveAttack(AttackMessage msg)
         {
             var player = Game.Instance.WorldFacade.GetPlayer(msg.PlayerId);
             if (player == null) return;
 
-            // The player role should have AttackStrategy assigned (when created).
             player.AttackStrategy?.ExecuteAttack(player, msg);
 
-            BroadcastState(); // broadcast world changes after attack
-        }
-
-        private void HandlePositionRestore(PositionRestoreMessage msg)
-        {
-            lock (locker)
-            {
-                var player = Game.Instance.WorldFacade.GetPlayer(msg.PlayerId);
-                if (player == null) return;
-
-                Console.WriteLine($"[UNDO] Restoring player {msg.PlayerId} position from ({player.X}, {player.Y})");
-
-                if (msg.X != 0 || msg.Y != 0)
-                {
-                    player.X = msg.X;
-                    player.Y = msg.Y;
-                }
-                else if (lastPositions.TryGetValue(msg.PlayerId, out var lastPos))
-                {
-                    player.X = lastPos.x;
-                    player.Y = lastPos.y;
-                }
-            }
-
+            // ✅ Keep: Immediate broadcast for attack feedback
             BroadcastState();
         }
-
-
-
-
-
     }
 }

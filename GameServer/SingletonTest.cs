@@ -22,11 +22,10 @@ namespace GameServer
                 });
             }
 
-            // Start all threads
             foreach (var t in threads)
                 t.Start();
 
-            // Wait for all to finish
+
             foreach (var t in threads)
                 t.Join();
 
