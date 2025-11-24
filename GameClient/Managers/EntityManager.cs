@@ -1,4 +1,5 @@
 // File: GameClient/Managers/EntityManager.cs (MODIFIED VERSION)
+
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
@@ -14,7 +15,6 @@ namespace GameClient.Managers
         private readonly Dictionary<int, EnemyRenderer> _enemies = new();
         private Image _defaultEnemySprite;
 
-        // BRIDGE: Store current renderer mode
         private IRenderer _currentRenderer;
 
         public EntityManager(Image defaultEnemySprite, IRenderer? renderer = null)
@@ -23,7 +23,6 @@ namespace GameClient.Managers
             _currentRenderer = renderer ?? new StandardRenderer();
         }
 
-        // BRIDGE: Method to switch renderers for ALL entities
         public void SetRenderer(IRenderer renderer)
         {
             _currentRenderer = renderer ?? throw new System.ArgumentNullException(nameof(renderer));
@@ -57,7 +56,6 @@ namespace GameClient.Managers
                         var sprite = SpriteRegistry.GetSprite(ps.RoleType);
                         var isLocal = ps.Id == localPlayerId;
 
-                        // BRIDGE: Pass renderer to constructor
                         var renderer = new PlayerRenderer(ps.Id, ps.RoleType, ps.X, ps.Y, sprite,
                                                          isLocal, Color.Black, Color.Blue, _currentRenderer);
                         _players[ps.Id] = renderer;
@@ -84,7 +82,6 @@ namespace GameClient.Managers
                     {
                         var sprite = SpriteRegistry.GetSprite(es.EnemyType) ?? _defaultEnemySprite;
 
-                        // BRIDGE: Pass renderer to constructor
                         var renderer = new EnemyRenderer(es.Id, es.EnemyType, es.X, es.Y, sprite,
                                                         es.Health, es.MaxHealth, _currentRenderer);
                         _enemies[es.Id] = renderer;
@@ -133,5 +130,13 @@ namespace GameClient.Managers
             }
         }
 
+        // ✅ NEW: Get all enemy renderers for theme updates
+        public List<EnemyRenderer> GetAllEnemyRenderers()
+        {
+            lock (_enemies)
+            {
+                return _enemies.Values.ToList();
+            }
+        }
     }
 }

@@ -28,19 +28,17 @@ namespace GameClient
         private readonly InputManager _inputManager;
         private readonly CommandInvoker _commandInvoker;
        
-
         private int _myId;
         private readonly System.Windows.Forms.Timer _gameTimer;
         private Map _map = new();
 
         private const int TileSize = GameConstants.TILE_SIZE;
 
-        // Theme fields
+        // Theme fields - NO MORE _playerSpriteSet!
         private readonly IGameThemeFactory _summerFactory;
         private readonly IGameThemeFactory _winterFactory;
         private ThemeMode _currentTheme;
         private ITileSpriteSet _tileSpriteSet;
-        private IPlayerSpriteSet _playerSpriteSet;
         private IEnemySpriteSet _enemySpriteSet;
         private IUiPalette _uiPalette;
         private Image _defaultEnemySprite;
@@ -48,13 +46,11 @@ namespace GameClient
         private IRenderer _standardRenderer;
         private IRenderer _antiAliasedRenderer;
         private IRenderer _debugRenderer;
-        private int _currentRendererMode = 0; // 0=standard, 1=antialiased, 2=debug
+        private int _currentRendererMode = 0;
         private readonly CursorRenderer _cursorRenderer;
         private DateTime _lastInputSent = DateTime.MinValue;
-        private const int InputRateMs = 50; // Send input 20 times per second
+        private const int InputRateMs = 50;
 
-
-        // Introducing map caching to prevent movement lag
         private Bitmap? _mapCache;
         private bool _mapCacheDirty = true;
 
@@ -71,21 +67,18 @@ namespace GameClient
             _summerFactory = new SummerGameThemeFactory();
             _winterFactory = new WinterGameThemeFactory();
 
-            // BRIDGE: Initialize renderers
             _standardRenderer = new StandardRenderer();
             _antiAliasedRenderer = new AntiAliasedRenderer();
             _debugRenderer = new DebugRenderer();
 
-            // BRIDGE: Pass renderer to EntityManager
             _entityManager = new EntityManager(_defaultEnemySprite, _standardRenderer);
 
-            // apply default theme
+            // Apply default theme
             ApplyTheme(ThemeMode.Winter, refreshSprites: true);
 
             _tileManager = new TileManager(TileSize);
             _animManager = new AnimationManager();
 
-            //input
             _inputManager = new InputManager(this, ClientSize);
             _commandInvoker = new CommandInvoker();
 
@@ -96,13 +89,7 @@ namespace GameClient
             KeyDown += GameClientForm_KeyDown;
             WalkSpriteLoader.LoadAllRoleAnimations("../assets/animations/");
 
-
-
-
-            // this.MouseDown += (s, e) => Console.WriteLine($"[DEBUG] Form MouseDown: {e.Button} at ({e.X}, {e.Y})");
-
             _cursorRenderer = new CursorRenderer();
-
         }
 
         private void InitializeComponentMinimal()
@@ -115,7 +102,7 @@ namespace GameClient
 
         private void GameClientForm_Load(object? sender, EventArgs e)
         {
-            PerformanceBenchmark.RunBenchmark(entityCount: 100); // Run benchmark
+            PerformanceBenchmark.RunBenchmark(entityCount: 100);
             _connection.Connect();
         }
 
@@ -165,7 +152,6 @@ namespace GameClient
                             {
                                 _entityManager.UpdatePlayers(state.Players, _myId);
                                 _entityManager.UpdateEnemies(state.Enemies);
-                                RefreshPlayerRenderers();
                                 Invalidate();
                             }));
                         }
@@ -231,7 +217,7 @@ namespace GameClient
             _map.SetTile(x, y, newTile);
             _tileManager.SetTile(newTile);
 
-            MarkMapCacheDirty(); // map caching
+            MarkMapCacheDirty();
         }
 
         private void GameLoop(object? sender, EventArgs e)
@@ -240,7 +226,6 @@ namespace GameClient
 
             _inputManager.Update();
 
-            // Only send input at fixed intervals
             if ((DateTime.UtcNow - _lastInputSent).TotalMilliseconds >= InputRateMs)
             {
                 bool isGamepad = _inputManager.ActiveAdapter?.InputMethodName.Contains("Controller") ?? false;
@@ -286,18 +271,6 @@ namespace GameClient
 
         private void GameClientForm_Paint(object? sender, PaintEventArgs e)
         {
-            //_tileManager.DrawAll(e.Graphics);
-            //_entityManager.DrawAll(e.Graphics);
-            //_animManager.DrawAll(e.Graphics);
-
-            //using var pen = new Pen(Color.Black, 1);
-            //for (int x = 0; x <= _map.Width; x++)
-            //    e.Graphics.DrawLine(pen, x * TileSize, 0, x * TileSize, _map.Height * TileSize);
-            //for (int y = 0; y <= _map.Height; y++)
-            //    e.Graphics.DrawLine(pen, 0, y * TileSize, _map.Width * TileSize, y * TileSize);
-
-            //_cursorRenderer.Draw(e.Graphics);
-
             EnsureMapCache();
             if (_mapCache != null)
                 e.Graphics.DrawImageUnscaled(_mapCache, 0, 0);
@@ -307,6 +280,7 @@ namespace GameClient
             _cursorRenderer.Draw(e.Graphics);
         }
 
+        // ✅ FIXED: No more player sprite theming
         private void ApplyTheme(ThemeMode mode, bool refreshSprites)
         {
             Console.WriteLine("Applying theme: " + mode);
@@ -314,7 +288,6 @@ namespace GameClient
             var factory = mode == ThemeMode.Summer ? _summerFactory : _winterFactory;
 
             _tileSpriteSet = factory.CreateTileSpriteSet();
-            _playerSpriteSet = factory.CreatePlayerSpriteSet();
             _enemySpriteSet = factory.CreateEnemySpriteSet();
             _uiPalette = factory.CreateUiPalette();
 
@@ -327,26 +300,36 @@ namespace GameClient
 
             if (!refreshSprites) return;
 
+            // Clear and re-register only tile and enemy sprites
             SpriteRegistry.Clear();
             RegisterThemeSprites();
-            MarkMapCacheDirty(); // map caching
-            RefreshPlayerRenderers();
+            
+            // Re-register player animation sprites (theme-independent)
+            WalkSpriteLoader.LoadAllRoleAnimations("../assets/animations/");
+            
+            // Update existing enemy sprites
+            RefreshEnemySprites();
+            
+            MarkMapCacheDirty();
             Invalidate();
         }
 
+        // ✅ FIXED: Only register tiles and enemies
         private void RegisterThemeSprites()
         {
-            foreach (var kvp in _tileSpriteSet.Sprites) SpriteRegistry.Register(kvp.Key, kvp.Value);
-            foreach (var kvp in _playerSpriteSet.Sprites) SpriteRegistry.Register(kvp.Key, kvp.Value);
-            foreach (var kvp in _enemySpriteSet.Sprites) SpriteRegistry.Register(kvp.Key, kvp.Value);
+            foreach (var kvp in _tileSpriteSet.Sprites) 
+                SpriteRegistry.Register(kvp.Key, kvp.Value);
+            foreach (var kvp in _enemySpriteSet.Sprites) 
+                SpriteRegistry.Register(kvp.Key, kvp.Value);
         }
 
-        private void RefreshPlayerRenderers()
+        // ✅ NEW: Update enemy sprites when theme changes
+        private void RefreshEnemySprites()
         {
-            foreach (var pr in _entityManager.GetAllPlayerRenderers())
+            foreach (var er in _entityManager.GetAllEnemyRenderers())
             {
-                var sprite = SpriteRegistry.GetSprite(pr.Role);
-                pr.UpdateTheme(sprite, _uiPalette.PlayerLabelColor, _uiPalette.LocalPlayerRingColor);
+                var sprite = SpriteRegistry.GetSprite(er.EnemyType) ?? _defaultEnemySprite;
+                er.UpdateSprite(sprite);
             }
         }
 
@@ -390,7 +373,6 @@ namespace GameClient
                 Console.WriteLine($"Input Method: {_inputManager.CurrentInputMethod}");
             }
 
-            // ✅ NEW: F8 to toggle undo functionality
             if (e.KeyCode == Keys.F8)
             {
                 _commandInvoker.UndoEnabled = !_commandInvoker.UndoEnabled;
@@ -398,27 +380,21 @@ namespace GameClient
 
                 if (!_commandInvoker.UndoEnabled)
                 {
-                    _commandInvoker.ClearHistory(); // Clear history when disabling
+                    _commandInvoker.ClearHistory();
                 }
             }
 
-            // ✅ NEW: Ctrl+Z to undo last command
             if (e.Control && e.KeyCode == Keys.Z)
             {
-
-
-                // 🧊 freeze input for a short time before sending undo
                 _lastInputSent = DateTime.UtcNow.AddMilliseconds(100);
-
                 _commandInvoker.UndoLastCommand();
             }
 
-
-            // ✅ NEW: Ctrl+Shift+Z to clear undo history
             if (e.Control && e.Shift && e.KeyCode == Keys.Z)
             {
                 _commandInvoker.ClearHistory();
             }
+
             if (e.KeyCode == Keys.F9)
             {
                 SpriteCache.Instance.PrintReport();
@@ -427,13 +403,6 @@ namespace GameClient
 
         protected override void Dispose(bool disposing)
         {
-            //if (disposing)
-            //{
-            //    _connection.Dispose();
-            //    _gameTimer.Dispose();
-            //}
-            //base.Dispose(disposing);
-
             if (disposing)
             {
                 _connection.Dispose();
@@ -443,7 +412,6 @@ namespace GameClient
             }
             base.Dispose(disposing);
         }
-
 
         private void MarkMapCacheDirty() => _mapCacheDirty = true;
 

@@ -1,4 +1,5 @@
-// File: GameClient/Rendering/EnemyRenderer.cs (MODIFIED VERSION)
+// File: GameClient/Rendering/EnemyRenderer.cs (FIXED VERSION)
+
 using System;
 using System.Drawing;
 using GameShared;
@@ -13,7 +14,7 @@ namespace GameClient.Rendering
         private float _prevX, _prevY;
         private float _targetX, _targetY;
         private DateTime _lastUpdateUtc;
-        private  Image _sprite;
+        private Image _sprite;
         private const double InterpolationMs = 150.0;
         public float CenterX => _targetX + 20;
         public float CenterY => _targetY + 20;
@@ -22,7 +23,6 @@ namespace GameClient.Rendering
         public int CurrentHP { get; set; }
         public int MaxHP { get; set; }
 
-        // BRIDGE PATTERN: Use IRenderer
         private IRenderer _renderer;
 
         public EnemyRenderer(int id, string enemyType, int startX, int startY, Image sprite,
@@ -37,14 +37,18 @@ namespace GameClient.Rendering
             CurrentHP = currentHP;
             MaxHP = maxHP;
 
-            // BRIDGE: Default to StandardRenderer
             _renderer = renderer ?? new StandardRenderer();
         }
 
-        // BRIDGE: Allow changing renderer at runtime
         public void SetRenderer(IRenderer renderer)
         {
             _renderer = renderer ?? throw new ArgumentNullException(nameof(renderer));
+        }
+
+        // ✅ NEW: Update sprite (for theme changes)
+        public void UpdateSprite(Image sprite)
+        {
+            _sprite = sprite;
         }
 
         public void SetTarget(int x, int y)
@@ -65,16 +69,11 @@ namespace GameClient.Rendering
 
             int size = GameConstants.ENEMY_SIZE;
 
-            // BRIDGE: Use renderer for sprite
             _renderer.DrawSprite(g, _sprite, drawX, drawY, size, size);
 
-            // Draw HP bar above enemy
             DrawHPBar(g, drawX, drawY - 5, size, 6);
 
-            // Label (enemy name)
             using var font = new Font(SystemFonts.DefaultFont.FontFamily, 7, FontStyle.Bold);
-
-            // BRIDGE: Use renderer for text
             _renderer.DrawText(g, $"{EnemyType} ({Id})", font, Color.Black, drawX, drawY - 25);
         }
 
@@ -87,10 +86,8 @@ namespace GameClient.Rendering
                             hpPercent > 0.25f ? Color.Orange :
                             Color.Red;
 
-            // BRIDGE: Use renderer for health bar
             _renderer.DrawHealthBar(g, x, y, width, height, hpPercent, hpColor);
 
-            // Draw numeric HP text
             string hpText = $"{CurrentHP}/{MaxHP}";
             using var font = new Font(SystemFonts.DefaultFont.FontFamily, 6, FontStyle.Bold);
             SizeF textSize = g.MeasureString(hpText, font);
@@ -98,11 +95,7 @@ namespace GameClient.Rendering
             float textX = x + (width - textSize.Width) / 2;
             float textY = y - 5;
 
-            // BRIDGE: Use renderer for text
             _renderer.DrawText(g, hpText, font, Color.Black, textX, textY);
         }
-
-
-
     }
 }
