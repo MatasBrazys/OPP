@@ -9,7 +9,7 @@ using System.Linq;
 
 namespace GameServer.Combat
 {
-    public class DefenderAttackStrategy : AttackTemplate
+    public sealed class DefenderAttackStrategy : AttackTemplate
     {
         private const int BaseDamage = 10;
         private static readonly float AttackRangePx = GameConstants.TILE_SIZE;

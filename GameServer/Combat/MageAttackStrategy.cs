@@ -6,7 +6,7 @@ using GameShared.Types.Players;
 
 namespace GameServer.Combat
 {
-    public class MageAttackStrategy : AttackTemplate
+    public sealed class MageAttackStrategy : AttackTemplate
     {
         private const int BaseDamage = 18;
         private const float MaxVisualDistancePx = GameConstants.TILE_SIZE * 2;

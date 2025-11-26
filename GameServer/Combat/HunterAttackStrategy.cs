@@ -6,7 +6,7 @@ using GameShared.Types.Players;
 
 namespace GameServer.Combat
 {
-    public class HunterAttackStrategy : AttackTemplate
+    public sealed class HunterAttackStrategy : AttackTemplate
     {
         private const int BaseDamage = 20;
         private static readonly float AttackRangePx = GameConstants.TILE_SIZE * 3f;
