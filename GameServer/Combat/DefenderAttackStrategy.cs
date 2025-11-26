@@ -120,20 +120,34 @@ namespace GameServer.Combat
             float clickX = msg.ClickX;
             float clickY = msg.ClickY;
 
-            double playerAngle = Math.Atan2(clickY - py, clickX - px) * 180.0 / Math.PI;
+            float dx = clickX - px;
+            float dy = clickY - py;
+            float dist = (float)Math.Sqrt(dx * dx + dy * dy);
+
+            // Normalize direction
+            if (dist > 0)
+            {
+                dx /= dist;
+                dy /= dist;
+            }
+
+            // Clamp animation to real slash range
+            float animX = px + dx * AttackRangePx;
+            float animY = py + dy * AttackRangePx;
+
+            double playerAngle = Math.Atan2(animY - py, animX - px) * 180.0 / Math.PI;
 
             var anim = new AttackAnimationMessage
             {
                 PlayerId = player.Id,
                 AttackType = "slash",
-                AnimX = clickX,
-                AnimY = clickY,
+                AnimX = animX,
+                AnimY = animY,
                 Direction = playerAngle.ToString("F1"),
                 Radius = AttackRangePx
             };
 
             Game.Instance.Server.BroadcastToAll(anim);
         }
-
     }
 }
