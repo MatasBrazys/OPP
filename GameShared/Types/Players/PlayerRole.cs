@@ -21,8 +21,6 @@ namespace GameShared.Types.Players
        // public float AttackDamage { get; set; }
 
         public override string EntityType => RoleType;
-       
-
         private IMovementStrategy _currentStrategy;
         private TileData? _previousTile = null;
 
@@ -41,8 +39,6 @@ namespace GameShared.Types.Players
             var copy = (PlayerRole)this.MemberwiseClone();
             return copy;
         }
-
-        
 
         protected PlayerRole(IMovementStrategy initialStrategy)
         {
@@ -97,6 +93,26 @@ namespace GameShared.Types.Players
             Console.WriteLine($"Original strategy after change: {original._currentStrategy.GetType().Name}");
             Console.WriteLine($"Clone strategy after change: {clone._currentStrategy.GetType().Name}");
         }
+
+        public PlayerMemento CreateMemento()
+        {
+            // Clone strategy if possible; otherwise reuse
+            var strategyCopy = _currentStrategy is ICloneable c
+                ? (IMovementStrategy)c.Clone()
+                : _currentStrategy;
+
+            return new PlayerMemento(Id, X, Y, Health, strategyCopy);
+        }  
+
+        public void RestoreMemento(PlayerMemento memento)
+        {
+            // Only allow restoring matching player
+            if (memento.Id != Id) return;
+
+            X = memento.X;
+            Y = memento.Y;
+            Health = memento.Health;
+            _currentStrategy = memento.MovementStrategy;
+        }
     }
 }
-

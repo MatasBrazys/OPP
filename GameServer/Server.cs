@@ -36,6 +36,9 @@ namespace GameServer
         private CollisionDetector _collisionDetector;
         private List<CommandHandler> _commandHandlers;
 
+        private readonly Dictionary<int, Stack<PlayerMemento>> _playerHistory = new();
+
+
         public void Start(int port)
         {
             TileLogSink.IsEnabled = EnableTileLogging;
@@ -104,6 +107,11 @@ namespace GameServer
             {
                 var player = Game.Instance.WorldFacade.GetPlayer(id);
                 if (player == null) return;
+                if (!_playerHistory.ContainsKey(player.Id))
+                    _playerHistory[player.Id] = new Stack<PlayerMemento>();
+
+                _playerHistory[player.Id].Push(player.CreateMemento());
+
 
                 int oldX = player.X;
                 int oldY = player.Y;
@@ -311,6 +319,23 @@ namespace GameServer
                             var ping = JsonSerializer.Deserialize<PingMessage>(line);
                             SendMessage(client, new PongMessage { T = ping.T });
                             break;
+                        case "position_restore":
+                            if (_playerHistory.TryGetValue(id, out var stack) && stack.Count > 0)
+                            {
+                                var snap = stack.Pop();
+                                var p = Game.Instance.WorldFacade.GetPlayer(id);
+                                if (p != null)
+                                {
+                                    p.RestoreMemento(snap);
+                                    BroadcastState(); // notify all clients
+                                }
+                            }
+                            else
+                            {
+                                Console.WriteLine($"[UNDO] No memento for player {id}");
+                            }
+                            break;
+
                         default:
                             SendMessage(client, new ErrorMessage { Code = "bad_message", Detail = $"unknown type: {type}" });
                             break;
