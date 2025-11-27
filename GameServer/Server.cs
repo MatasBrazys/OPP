@@ -36,7 +36,7 @@ namespace GameServer
         private CollisionDetector _collisionDetector;
         private List<CommandHandler> _commandHandlers;
 
-        private readonly Dictionary<int, Stack<PlayerMemento>> _playerHistory = new();
+        private readonly Dictionary<int, Stack<IPlayerMemento>> _playerHistory = new();
 
 
         public void Start(int port)
@@ -108,7 +108,7 @@ namespace GameServer
                 var player = Game.Instance.WorldFacade.GetPlayer(id);
                 if (player == null) return;
                 if (!_playerHistory.ContainsKey(player.Id))
-                    _playerHistory[player.Id] = new Stack<PlayerMemento>();
+                    _playerHistory[player.Id] = new Stack<IPlayerMemento>();
 
                 _playerHistory[player.Id].Push(player.CreateMemento());
 
