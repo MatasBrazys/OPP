@@ -8,17 +8,17 @@ namespace GameShared.Types.Players
 {
     public abstract class PlayerRole : Entity, ICloneable
     {
-        public int Health { get;  set; }
-        public string RoleType { get;  set; }
-        public Color RoleColor { get;  set; }
+        public int Health { get; set; }
+        public string RoleType { get; set; }
+        public Color RoleColor { get; set; }
         public IAttackStrategy AttackStrategy { get; set; }
 
         //cia reik abstract factory sudet, siuo metu as tiesiogiai facade sudedu situs, reiks settint juos i internal veliau. 
         //important!!!!!
         public float AttackRange { get; set; }
-        
+
         //public float AttackCooldown { get; set; }
-       // public float AttackDamage { get; set; }
+        // public float AttackDamage { get; set; }
 
         public override string EntityType => RoleType;
         private IMovementStrategy _currentStrategy;
@@ -102,7 +102,7 @@ namespace GameShared.Types.Players
                 : _currentStrategy;
 
             return new PlayerMemento(Id, X, Y, strategyCopy);
-        }  
+        }
 
         public void RestoreMemento(IPlayerMemento memento)
         {
@@ -113,5 +113,23 @@ namespace GameShared.Types.Players
             Y = snapshot.Y;
             _currentStrategy = snapshot.MovementStrategy ?? new NormalMovement();
         }
+
+        #region Composite leaf override
+
+        public override void Update()
+        {
+            base.Update();
+        }
+
+        public override void Add(Entity child)
+            => throw new NotSupportedException("PlayerRole is a leaf and cannot have children");
+
+        public override void Remove(Entity child)
+            => throw new NotSupportedException("PlayerRole is a leaf and cannot have children");
+
+        public override IReadOnlyList<Entity> GetChildren()
+            => throw new NotSupportedException("PlayerRole is a leaf and does not have children");
+
+        #endregion Composite leaf override
     }
 }

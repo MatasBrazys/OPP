@@ -28,18 +28,18 @@ namespace GameServer.Facades
         {
             var (x, y) = FindPassableTile();
             var player = _playerFactory.CreatePlayer(roleType, id, x, y); 
-            _world.AddEntity(player);
+            _world.Add(player);
             return player;
         }
 
         public void AddPlayer(PlayerRole player)
         {
-            _world.AddEntity(player);
+            _world.Add(player);
         }
 
         public void RemovePlayer(PlayerRole player)
         {
-            _world.RemoveEntity(player);
+            _world.Remove(player);
         }
 
         public PlayerRole? GetPlayer(int id)
@@ -60,12 +60,12 @@ namespace GameServer.Facades
         {
             var (x, y) = FindPassableTile();
             var enemy = _enemyFactory.CreateEnemy(type, id, x, y);
-            _world.AddEntity(enemy);
+            _world.Add(enemy);
             return enemy;
         }
         public void RemoveEnemy(Enemy enemy)
         {
-            _world.RemoveEntity(enemy);
+            _world.Remove(enemy);
         }
 
         public List<Enemy> GetAllEnemies()
@@ -146,17 +146,53 @@ namespace GameServer.Facades
         //generic object methods
         public void AddObject(GameObject obj)
         {
-            _world.AddEntity(obj);
+            _world.Add(obj);
         }
 
         public void RemoveObject(GameObject obj)
         {
-            _world.RemoveEntity(obj);
+            _world.Remove(obj);
         }
 
         public void UpdateWorld()
         {
             _world.Update();
         }
+
+        public void DemoLeafCannotHaveChildren()
+        {
+            Console.WriteLine("\n\n=== Composite Pattern Demo: Leaf Safety ===");
+
+            // Use existing facade methods to create leaves
+            var demoPlayer = CreatePlayer("Defender", 999);
+            var demoEnemy = CreateEnemy("slime", 9999);
+
+            try
+            {
+                Console.WriteLine("Attempting to add a child to PlayerRole (leaf)...");
+                demoPlayer.Add(demoEnemy); // should throw
+            }
+            catch (NotSupportedException ex)
+            {
+                Console.WriteLine($"Expected exception caught: {ex.Message}");
+            }
+
+            try
+            {
+                Console.WriteLine("Attempting to add a child to Enemy (leaf)...");
+                demoEnemy.Add(demoPlayer); // should throw
+            }
+            catch (NotSupportedException ex)
+            {
+                Console.WriteLine($"Expected exception caught: {ex.Message}");
+            }
+
+            Console.WriteLine("=== Demo complete: leaves cannot have children. === \n\n");
+
+            RemoveEnemy(demoEnemy);
+            RemovePlayer(demoPlayer);
+        }
+
+
     }
 }
