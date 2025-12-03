@@ -5,6 +5,8 @@ using GameShared.Types.Map;
 using GameShared.Types.Players;
 using GameShared.Types.Enemies;
 using GameServer.Combat;
+using GameServer.Collections;
+using GameServer.Iterators;
 
 using GameShared;
 namespace GameServer.Facades
@@ -14,13 +16,18 @@ namespace GameServer.Facades
         private readonly World _world;
         private readonly IPlayerFactory _playerFactory;
         private readonly IEnemyFactory _enemyFactory;
+        private readonly PlantCollection _plants;
+        private PlantIterator? _plantIterator;
 
+        // Event for notifying about plant updates
+        public event Action<Plant, string>? OnPlantGrew;
 
         public GameWorldFacade(World world, IPlayerFactory playerFactory, IEnemyFactory enemyFactory)
         {
             _world = world;
             _playerFactory = playerFactory;
             _enemyFactory = enemyFactory;
+            _plants = new PlantCollection();
         }
 
         //player methods
@@ -72,6 +79,116 @@ namespace GameServer.Facades
         {
             return _world.GetEnemies();
         }
+
+        // ===== PLANT METHODS =====
+
+        /// <summary>
+        /// Plant a new plant at the specified tile position
+        /// </summary>
+        public Plant PlantSeed(int tileX, int tileY, string plantType = "Plant")
+        {
+            // Create new plant
+            Plant newPlant = plantType.ToLower() switch
+            {
+                "wheat" => new Wheat(0, tileX, tileY),
+                _ => new Plant(0, tileX, tileY, plantType)
+            };
+
+            // Add to collection
+            _plants.Add(newPlant);
+
+            // Update the map tile to show the plant's initial state
+            var currentTile = _world.Map.GetTile(tileX, tileY);
+            string initialTileType = newPlant.GetCurrentTileType();
+            UpdatePlantTile(tileX, tileY, initialTileType);
+
+            Console.WriteLine($"Planted {newPlant.PlantType} at ({tileX}, {tileY}): {newPlant}");
+
+            return newPlant;
+        }
+
+        /// <summary>
+        /// Remove a plant from the collection and map
+        /// </summary>
+        public void HarvestPlant(Plant plant)
+        {
+            if (plant != null)
+            {
+                _plants.Remove(plant);
+                // Replace plant tile with grass
+                _world.Map.SetTile(plant.X, plant.Y, new GrassTile(plant.X, plant.Y));
+                Console.WriteLine($"Harvested plant at ({plant.X}, {plant.Y})");
+            }
+        }
+
+        /// <summary>
+        /// Get all plants
+        /// </summary>
+        public List<Plant> GetAllPlants()
+        {
+            return _plants.GetIterator().GetAllPlants();
+        }
+
+        /// <summary>
+        /// Update plant growth stages and notify clients
+        /// Should be called periodically from the game loop
+        /// </summary>
+        public List<Plant> UpdatePlantGrowth()
+        {
+            var updatedPlants = new List<Plant>();
+
+            if (_plantIterator == null)
+            {
+                _plantIterator = _plants.GetIterator();
+            }
+
+            // Get all plants ready for growth
+            var readyPlants = _plantIterator.GetPlantsForGrowth();
+
+            foreach (var plant in readyPlants)
+            {
+                _plantIterator.AdvancePlantStage(plant);
+                
+                // Update the tile on the map to reflect new growth stage
+                string newTileType = plant.GetCurrentTileType();
+                UpdatePlantTile(plant.X, plant.Y, newTileType);
+
+                updatedPlants.Add(plant);
+
+                Console.WriteLine($"Plant grew: {plant}");
+
+                // Trigger event for broadcasting to clients
+                OnPlantGrew?.Invoke(plant, newTileType);
+            }
+
+            return updatedPlants;
+        }
+
+        /// <summary>
+        /// Update the tile representation of a plant on the map
+        /// </summary>
+        private void UpdatePlantTile(int tileX, int tileY, string tileType)
+        {
+            TileData newTile;
+            
+            if (tileType == "Wheat")
+                newTile = new WheatTile(tileX, tileY);
+            else if (tileType == "WheatPlant")
+                newTile = new WheatPlantTile(tileX, tileY);
+            else
+                newTile = new GrassTile(tileX, tileY);
+
+            _world.Map.SetTile(tileX, tileY, newTile);
+        }
+
+        /// <summary>
+        /// Get a specific plant by ID
+        /// </summary>
+        public Plant? GetPlantById(int plantId)
+        {
+            return _plants.GetIterator().GetPlantById(plantId);
+        }
+
         //map methods
         public TileData? GetTileAt(int x, int y)
         {
@@ -192,7 +309,5 @@ namespace GameServer.Facades
             RemoveEnemy(demoEnemy);
             RemovePlayer(demoPlayer);
         }
-
-
     }
 }

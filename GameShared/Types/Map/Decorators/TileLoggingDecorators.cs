@@ -38,6 +38,7 @@ public abstract class TileLoggingDecorator : TileData
     }
 
     public override bool Passable => Inner.Passable;
+    public override bool Plantable => Inner.Plantable;
     public override string TileType => Inner.TileType;
 
     protected void LogMessage(string message)

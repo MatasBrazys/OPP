@@ -9,6 +9,7 @@ public class GrassTile : TileData
     public int tileId = 0;
     public override string TileType => "Grass";
     public override bool Passable => true;
+    public override bool Plantable => true;
     public GrassTile(int x, int y) : base(x, y) { }
 }
 
@@ -116,4 +117,20 @@ public class CherryTile : TileData
 
         return result;
     }
+   
+}
+public class WheatTile : TileData
+{
+    public int tileId = 8;
+    public override string TileType => "Wheat";
+    public override bool Passable => true;
+    public WheatTile(int x, int y) : base(x, y) { }
+}
+
+public class WheatPlantTile : TileData
+{
+    public int tileId = 9;
+    public override string TileType => "WheatPlant";
+    public override bool Passable => true;
+    public WheatPlantTile(int x, int y) : base(x, y) { }
 }

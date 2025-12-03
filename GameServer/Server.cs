@@ -232,6 +232,14 @@ namespace GameServer
             }
         }
 
+        /// <summary>
+        /// Broadcast a message to all connected clients
+        /// </summary>
+        public void BroadcastMessage<T>(T message)
+        {
+            BroadcastToAll(message);
+        }
+
         private void SendStateTo(TcpClient client)
         {
             var snapshot = new StateMessage
@@ -333,6 +341,14 @@ namespace GameServer
                             else
                             {
                                 Console.WriteLine($"[UNDO] No memento for player {id}");
+                            }
+                            break;
+
+                        case "plant_action":
+                            var plantAction = JsonSerializer.Deserialize<PlantActionMessage>(line);
+                            if (plantAction != null)
+                            {
+                                HandlePlantAction(plantAction);
                             }
                             break;
 
@@ -441,6 +457,45 @@ namespace GameServer
 
             // ✅ Keep: Immediate broadcast for attack feedback
             BroadcastState();
+        }
+
+        /// <summary>
+        /// Handle plant action from client
+        /// </summary>
+        private void HandlePlantAction(PlantActionMessage msg)
+        {
+            Console.WriteLine($"[PLANT] Received plant action from player {msg.PlayerId} at ({msg.TileX}, {msg.TileY})");
+
+            // Validate tile position
+            if (msg.TileX < 0 || msg.TileY < 0 || 
+                msg.TileX >= Game.Instance.World.Map.Width || 
+                msg.TileY >= Game.Instance.World.Map.Height)
+            {
+                Console.WriteLine($"[PLANT] Invalid tile position: ({msg.TileX}, {msg.TileY})");
+                return;
+            }
+
+            // Get the tile
+            var tile = Game.Instance.WorldFacade.GetTileAt(msg.TileX, msg.TileY);
+            if (tile == null || !tile.Plantable)
+            {
+                Console.WriteLine($"[PLANT] Tile at ({msg.TileX}, {msg.TileY}) is not plantable");
+                return;
+            }
+
+            // Plant on the tile
+            var plant = Game.Instance.WorldFacade.PlantSeed(msg.TileX, msg.TileY, msg.PlantType);
+            
+            // Broadcast tile update to all clients
+            var tileUpdate = new TileUpdateMessage
+            {
+                X = msg.TileX,
+                Y = msg.TileY,
+                TileType = "WheatPlant"
+            };
+            
+            BroadcastToAll(tileUpdate);
+            Console.WriteLine($"[PLANT] Successfully planted {msg.PlantType} at ({msg.TileX}, {msg.TileY})");
         }
     }
 }
