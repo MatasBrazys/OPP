@@ -225,12 +225,6 @@ namespace GameClient
             _map.SetTile(x, y, newTile);
             _tileManager.SetTile(newTile);
 
-            // Debug logging for plantable tiles
-            if (tileType.ToLower() == "grass")
-            {
-                Console.WriteLine($"[DEBUG] Created GrassTile at ({x}, {y}), Plantable: {newTile.Plantable}");
-            }
-
             MarkMapCacheDirty();
         }
 
@@ -458,10 +452,6 @@ namespace GameClient
                 return;
             }
 
-            // Debug: Print tile info
-            Console.WriteLine($"[PLANT] DEBUG: Tile type: {tile.TileType}, Plantable: {tile.Plantable}");
-            Console.WriteLine($"[PLANT] DEBUG: Tile class: {tile.GetType().Name}");
-
             // Check if tile is plantable
             if (!tile.Plantable)
             {
@@ -480,7 +470,7 @@ namespace GameClient
 
             var json = System.Text.Json.JsonSerializer.Serialize(plantMessage);
             _connection.SendRaw(json);
-            Console.WriteLine($"[PLANT] ✅ Sent plant request at ({tileX}, {tileY})");
+            Console.WriteLine($"[PLANT] Sent plant request at ({tileX}, {tileY})");
         }
 
         protected override void Dispose(bool disposing)

@@ -137,10 +137,8 @@ namespace GameServer.Facades
         {
             var updatedPlants = new List<Plant>();
 
-            if (_plantIterator == null)
-            {
-                _plantIterator = _plants.GetIterator();
-            }
+            // Always create a fresh iterator to include newly planted plants
+            _plantIterator = _plants.GetIterator();
 
             // Get all plants ready for growth
             var readyPlants = _plantIterator.GetPlantsForGrowth();
