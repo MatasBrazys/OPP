@@ -80,7 +80,6 @@ namespace GameServer.Facades
             return _world.GetEnemies();
         }
 
-        // ===== PLANT METHODS =====
 
         /// <summary>
         /// Plant a new plant at the specified tile position
@@ -306,6 +305,100 @@ namespace GameServer.Facades
 
             RemoveEnemy(demoEnemy);
             RemovePlayer(demoPlayer);
+        }
+
+        /// <summary>
+        /// Get all plantable tiles on the map
+        /// </summary>
+        public List<TileData> GetPlantableTiles()
+        {
+            var plantableTiles = new List<TileData>();
+            for (int y = 0; y < _world.Map.Height; y++)
+            {
+                for (int x = 0; x < _world.Map.Width; x++)
+                {
+                    var tile = _world.Map.GetTile(x, y);
+                    if (tile.Plantable)
+                    {
+                        plantableTiles.Add(tile);
+                    }
+                }
+            }
+            return plantableTiles;
+        }
+
+        /// <summary>
+        /// Find all plants that are matured and ready to harvest
+        /// </summary>
+        public List<Plant> GetMaturePlants()
+        {
+            return _plants.GetIterator().GetAllPlants()
+                .Where(p => p.IsMatured())
+                .ToList();
+        }
+
+        /// <summary>
+        /// Get a plant by its specific coordinates
+        /// </summary>
+        public Plant? GetPlantAtTile(int tileX, int tileY)
+        {
+            var iterator = _plants.GetIterator();
+            return iterator.GetAllPlants().FirstOrDefault(p => p.X == tileX && p.Y == tileY);
+        }
+
+        /// <summary>
+        /// Find all plants of a specific type
+        /// </summary>
+        public List<Plant> GetPlantsByType(string plantType)
+        {
+            return _plants.GetIterator().GetAllPlants()
+                .Where(p => p.PlantType.Equals(plantType, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+        }
+
+        /// <summary>
+        /// Check how many plants are currently in the game world
+        /// </summary>
+        public int GetTotalPlantCount()
+        {
+            return _plants.GetIterator().GetAllPlants().Count;
+        }
+
+        /// <summary>
+        /// Find the first plant ready for growth update
+        /// </summary>
+        public Plant? GetNextPlantForGrowth()
+        {
+            var readyPlants = _plants.GetIterator().GetPlantsForGrowth();
+            return readyPlants.FirstOrDefault();
+        }
+
+        /// <summary>
+        /// Get statistics about current plants in the world
+        /// </summary>
+        public Dictionary<string, int> GetPlantStatistics()
+        {
+            var iterator = _plants.GetIterator();
+            var allPlants = iterator.GetAllPlants();
+            
+            var stats = new Dictionary<string, int>
+            {
+                { "Total", allPlants.Count },
+                { "ReadyForGrowth", iterator.GetPlantsForGrowth().Count },
+                { "Matured", allPlants.Count(p => p.IsMatured()) }
+            };
+
+            // Count by plant type
+            foreach (var plantType in allPlants.Select(p => p.PlantType).Distinct())
+            {
+                if (!stats.ContainsKey(plantType))
+                {
+                    stats[plantType] = 0;
+                }
+                stats[plantType] = allPlants.Count(p => p.PlantType == plantType);
+            }
+
+            return stats;
         }
     }
 }

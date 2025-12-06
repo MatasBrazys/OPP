@@ -30,7 +30,7 @@ public static class TileLogSink
 
 public abstract class TileLoggingDecorator : TileData
 {
-    protected TileData Inner { get; }
+    public TileData Inner { get; }
 
     protected TileLoggingDecorator(TileData inner) : base(inner.X, inner.Y)
     {
