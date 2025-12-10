@@ -113,23 +113,5 @@ namespace GameShared.Types.Players
             Y = snapshot.Y;
             _currentStrategy = snapshot.MovementStrategy ?? new NormalMovement();
         }
-
-        #region Composite leaf override
-
-        public override void Update()
-        {
-            base.Update();
-        }
-
-        public override void Add(Entity child)
-            => throw new NotSupportedException("PlayerRole is a leaf and cannot have children");
-
-        public override void Remove(Entity child)
-            => throw new NotSupportedException("PlayerRole is a leaf and cannot have children");
-
-        public override IReadOnlyList<Entity> GetChildren()
-            => throw new NotSupportedException("PlayerRole is a leaf and does not have children");
-
-        #endregion Composite leaf override
     }
 }

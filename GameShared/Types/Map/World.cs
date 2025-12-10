@@ -4,9 +4,10 @@ using GameShared.Types.Enemies;
 
 namespace GameShared.Types.Map
 {
-    public class World : Entity
+    public class World
     {
         public Map Map { get; private set; }
+        public List<Entity> Entities { get; private set; }
 
         public World()
         {
@@ -16,48 +17,42 @@ namespace GameShared.Types.Map
             Console.WriteLine($"Map loaded: width={Map.Width}, height={Map.Height}");
             var tile = Map.GetTile(0, 0);
             Console.WriteLine(tile.TileType);
+            Entities = new List<Entity>();
         }
 
-        public override string EntityType => "World";
-
-        // Add child entity (PlayerRole, Enemy, etc.)
-        public override void Add(Entity child)
+        public void AddEntity(Entity entity)
         {
-            base.Add(child); // uses Entity's thread-safe _children
+            Console.WriteLine($"World.AddEntity: world={GetHashCode()}, type={entity.GetType().Name}");
+            Entities.Add(entity);
         }
 
-        public override void Remove(Entity child)
+        public void RemoveEntity(Entity entity)
         {
-            base.Remove(child); // thread-safe removal
+            Entities.Remove(entity);
         }
 
         public PlayerRole? GetPlayer(int id)
         {
-            return GetChildren()
-                .OfType<PlayerRole>()
-                .FirstOrDefault(p => p.Id == id);
+            return Entities?.OfType<PlayerRole>()?.FirstOrDefault(p => p.Id == id);
         }
 
         public List<PlayerRole> GetPlayers()
         {
-            return GetChildren()
-                .OfType<PlayerRole>()
-                .ToList();
+            //Console.WriteLine($"World.GetPlayers: world={GetHashCode()}, count={Entities.OfType<PlayerRole>().Count()}"); 
+            return Entities.OfType<PlayerRole>().ToList();
         }
 
         public List<Enemy> GetEnemies()
         {
-            return GetChildren()
-                .OfType<Enemy>()
-                .ToList();
+            return Entities.OfType<Enemy>().ToList();
         }
 
-        public override void Update()
+        public void Update()
         {
-            // Update all children safely via Entity composite
-            base.Update();
-
-            // Optionally, add world-level logic here (e.g., Map updates)
+            foreach (var entity in Entities)
+            {
+                entity.Update();
+            }
         }
     }
 }

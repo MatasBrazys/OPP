@@ -43,10 +43,6 @@ namespace GameServer
             Console.WriteLine("Game.Start: calling InitializeWorld");
             InitializeWorld();
 
-            // === Demo Composite Pattern: show leaves cannot have children ===
-            WorldFacade.DemoLeafCannotHaveChildren();
-            // ===============================================================
-
             // Start the world tick loop in a separate thread
             _running = true;
             _tickThread = new Thread(GameLoop) { IsBackground = true };
@@ -62,12 +58,12 @@ namespace GameServer
             // Create initial game objects or enemies
             var slime = EnemyFactory.CreateEnemy("slime", 9001, 400, 800);
             slime.RoamingAI = new LeftRightRoam(slime.X, 200, 2); // 200px roam, 2px per tick
-            World.Add(slime);
+            World.AddEntity(slime);
 
 
             var slime1 = EnemyFactory.CreateEnemy("slime", 9002, 850, 400);
             slime1.RoamingAI = new LeftRightRoam(slime1.X, 100, 2); // 200px roam, 2px per tick
-            World.Add(slime1);
+            World.AddEntity(slime1);
 
             // ===== DEMO: Plant some wheat for testing =====
             Console.WriteLine("\nPlanting demo wheat seeds...");
