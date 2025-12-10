@@ -5,9 +5,9 @@ using GameShared.Types.Map;
 namespace GameShared.Types.GameObjects
 {
     /// <summary>
-    /// Represents a plant that grows through multiple stages over time
+    /// Represents a plant that grows through multiple stages over time.
     /// </summary>
-    public class Plant
+    public class Plant : IPlantComponent
     {
         public int Id { get; set; }
         public int X { get; set; }
@@ -16,6 +16,22 @@ namespace GameShared.Types.GameObjects
         public DateTime PlantedTime { get; set; }
         public DateTime NextStageTime { get; set; }
         public string PlantType { get; set; } = "Plant";
+
+        // IPlantComponent: leaf behavior
+        public IEnumerable<IPlantComponent> GetChildren()
+        {
+            return new List<IPlantComponent>();
+        }
+
+        public void Add(IPlantComponent component)
+        {
+            throw new NotSupportedException("Cannot add child to Plant leaf");
+        }
+
+        public bool Remove(IPlantComponent component)
+        {
+            return false;
+        }
 
         /// <summary>
         /// Defines the growth stages: stage -> (duration in milliseconds, tile type)

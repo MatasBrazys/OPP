@@ -34,7 +34,7 @@ namespace GameServer.Facades
         public PlayerRole CreatePlayer(string roleType, int id)
         {
             var (x, y) = FindPassableTile();
-            var player = _playerFactory.CreatePlayer(roleType, id, x, y); 
+            var player = _playerFactory.CreatePlayer(roleType, id, x, y);
             _world.AddEntity(player);
             return player;
         }
@@ -107,6 +107,70 @@ namespace GameServer.Facades
         }
 
         /// <summary>
+        /// This demonstrates the Composite pattern in action:
+        /// - Creates individual plants (leaves)
+        /// - Groups them into field collections (composites)
+        /// - Combines fields into a farm (composite of composites)
+        /// </summary>
+        public void CreateDemoFarmWithComposites()
+        {
+            Console.WriteLine("\n=== Creating Demo Farm with Composite Plant Groups ===\n");
+
+            // Create North Field (composite 1)
+            var northField = new PlantCollection();
+            var wheat1 = new Wheat(0, 2, 2);
+            var wheat2 = new Wheat(0, 2, 4);
+            var wheat3 = new Wheat(0, 4, 2);
+
+            northField.Add(wheat1);
+            northField.Add(wheat2);
+            northField.Add(wheat3);
+
+            Console.WriteLine($"North Field created with {northField.Count} plants");
+
+            // Create South Field (composite 2)
+            var southField = new PlantCollection();
+            var carrot1 = new Plant(0, 2, 15, "Carrot");
+            var carrot2 = new Plant(0, 4, 15, "Carrot");
+            var carrot3 = new Plant(0, 6, 15, "Carrot");
+
+            southField.Add(carrot1);
+            southField.Add(carrot2);
+            southField.Add(carrot3);
+
+            Console.WriteLine($"South Field created with {southField.Count} plants");
+
+            var farm = new PlantCollection();
+            farm.Add(northField);   // Add entire field group!
+            farm.Add(southField);   // Add another field group!
+
+            Console.WriteLine($"Farm created as composite with {farm.Count} field groups");
+
+            _plants.Add(farm);
+
+            Console.WriteLine($"Farm added to world. Total top-level components: {_plants.Count}\n");
+
+            Console.WriteLine("Demonstrating uniform operations on nested composite:");
+
+            if (farm.IsReadyForNextStage())
+            {
+                Console.WriteLine("Farm is ready for growth - advancing all plants in all fields");
+                farm.AdvanceStage();
+            }
+
+            Console.WriteLine($"Farm maturity status: {(farm.IsMatured() ? "All plants matured" : "Some plants still growing")}\n");
+
+            // Demonstrate getting all leaves from nested structure
+            var allPlants = farm.GetAllPlants();
+            Console.WriteLine($"Total individual plants in farm: {allPlants.Count}");
+            foreach (var plant in allPlants)
+            {
+                Console.WriteLine($"  - {plant.PlantType} at ({plant.X}, {plant.Y}) - Stage: {plant.CurrentStage}");
+            }
+            Console.WriteLine("\n=== Demo of Composite Plant Groups ===\n");
+        }
+
+        /// <summary>
         /// Remove a plant from the collection and map
         /// </summary>
         public void HarvestPlant(Plant plant)
@@ -145,13 +209,12 @@ namespace GameServer.Facades
             foreach (var plant in readyPlants)
             {
                 _plantIterator.AdvancePlantStage(plant);
-                
+
                 // Update the tile on the map to reflect new growth stage
                 string newTileType = plant.GetCurrentTileType();
                 UpdatePlantTile(plant.X, plant.Y, newTileType);
 
                 updatedPlants.Add(plant);
-
                 Console.WriteLine($"Plant grew: {plant}");
 
                 // Trigger event for broadcasting to clients
@@ -167,7 +230,7 @@ namespace GameServer.Facades
         private void UpdatePlantTile(int tileX, int tileY, string tileType)
         {
             TileData newTile;
-            
+
             if (tileType == "Wheat")
                 newTile = new WheatTile(tileX, tileY);
             else if (tileType == "WheatPlant")
@@ -242,7 +305,7 @@ namespace GameServer.Facades
 
         private (int x, int y) FindPassableTile()
         {
-            const int TileSize =  GameConstants.TILE_SIZE;
+            const int TileSize = GameConstants.TILE_SIZE;
 
             for (int ty = 0; ty < _world.Map.Height; ty++)
             {
@@ -346,7 +409,7 @@ namespace GameServer.Facades
         {
             var iterator = _plants.GetIterator();
             var allPlants = iterator.GetAllPlants();
-            
+
             var stats = new Dictionary<string, int>
             {
                 { "Total", allPlants.Count },

@@ -73,6 +73,10 @@ namespace GameServer
             Console.WriteLine($"Total plants: {WorldFacade.GetAllPlants().Count}\n");
             // ===============================================
 
+            // ===== COMPOSITE PATTERN DEMO: Nested plant groups =====
+            WorldFacade.CreateDemoFarmWithComposites();
+            // ========================================================
+
             // Add more enemies or objects as needed
         }
 
