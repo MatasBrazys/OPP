@@ -43,6 +43,9 @@ namespace GameServer
             Console.WriteLine("Game.Start: calling InitializeWorld");
             InitializeWorld();
 
+            // Wire mediator before server starts accepting clients
+            Server.InitializeMediator(WorldFacade);
+
             // Start the world tick loop in a separate thread
             _running = true;
             _tickThread = new Thread(GameLoop) { IsBackground = true };

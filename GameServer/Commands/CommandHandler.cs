@@ -2,6 +2,7 @@
 using GameServer.Events;
 using GameShared.Messages;
 using static GameServer.Events.GameEvent;
+using GameServer.Mediator;
 
 namespace GameServer.Commands
 {
@@ -13,11 +14,11 @@ namespace GameServer.Commands
 
     public class CollisionCommandHandler : CommandHandler
     {
-        private readonly Server _server;
+        private readonly IClientNotifier _notifier;
 
-        public CollisionCommandHandler(Server server)
+        public CollisionCommandHandler(IClientNotifier notifier)
         {
-            _server = server;
+            _notifier = notifier;
         }
 
         public override string[] HandledEventTypes => new[] { "collision" };
@@ -44,7 +45,7 @@ namespace GameServer.Commands
                 Y = collision.Y
             };
 
-            _server.BroadcastToAll(collisionMessage);
+            _notifier.BroadcastToAll(collisionMessage);
         }
     }
 }

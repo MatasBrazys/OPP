@@ -1,42 +1,36 @@
-﻿//./GameServer/Server.cs
-using GameServer.Commands;
-using GameServer.Events;
+//./GameServer/Server.cs
 using GameShared.Messages;
-using GameShared.Strategies;
 using GameShared.Types.DTOs;
 using GameShared.Types.Map;
 using GameShared.Types.Map.Decorators;
 using GameShared.Types.Players;
-using System.Data;
+using System.IO;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
-using GameServer.Collision;
+using System.Threading;
+using System.Linq;
 using GameShared;
+using GameServer.Mediator;
+using GameServer.Facades;
 
 namespace GameServer
 {
-    public class Server : IObserver
+    public class Server : IClientNotifier
     {
-        static TcpListener listener;
+        static TcpListener? listener;
         static Dictionary<int, TcpClient> clients = new();
         static Dictionary<int, string> clientRoles = new();
         static int nextId = 1;
         static object locker = new object();
         private static int nextPlayerId = 1000;
-        private readonly object idLock = new object();
-        private static readonly object _cherriesLock = new object();
-        private static HashSet<(int x, int y)> eatenCherries = new HashSet<(int x, int y)>();
+        private static readonly object IdLock = new object();
 
         static readonly string[] AllRoles = new[] { "mage", "defender", "hunter" };
-        private static readonly NormalMovement DefaultMovementStrategy = new();
         private const bool EnableTileLogging = false;
 
-        private CollisionDetector _collisionDetector;
-        private List<CommandHandler> _commandHandlers;
-
-        private readonly Dictionary<int, Stack<IPlayerMemento>> _playerHistory = new();
+        private IGameMediator? _mediator;
 
 
         public void Start(int port)
@@ -44,8 +38,8 @@ namespace GameServer
             TileLogSink.IsEnabled = EnableTileLogging;
             TileLogSink.Logger = EnableTileLogging ? message => Console.WriteLine(message) : null;
 
-            _collisionDetector = new CollisionDetector();
-            InitializeCommandHandlers();
+            if (_mediator == null)
+                throw new InvalidOperationException("Mediator has not been initialized. Call InitializeMediator before Start.");
 
             listener = new TcpListener(IPAddress.Any, port);
             listener.Start();
@@ -69,7 +63,7 @@ namespace GameServer
                     }
 
                     role = available[Random.Shared.Next(available.Count)];
-                    
+
                     id = nextId++;
                     clients[id] = client;
                     clientRoles[id] = role;
@@ -84,141 +78,17 @@ namespace GameServer
             }
         }
 
-        private void InitializeCommandHandlers()
+        public void InitializeMediator(GameWorldFacade facade)
         {
-            _commandHandlers = new List<CommandHandler>
-            {
-                new CollisionCommandHandler(this)
-            };
-            foreach (var handler in _commandHandlers)
-            {
-                _collisionDetector.RegisterObserver(handler);
-            }
-            _collisionDetector.RegisterObserver(this);
+            _mediator = new GameMediator(facade, this);
         }
 
         private void HandleInput(int id, InputMessage input)
         {
-            // ✅ FIX 1: Skip if no movement
-            if (input.Dx == 0 && input.Dy == 0)
-                return;
-
             lock (locker)
             {
-                var player = Game.Instance.WorldFacade.GetPlayer(id);
-                if (player == null) return;
-                if (!_playerHistory.ContainsKey(player.Id))
-                    _playerHistory[player.Id] = new Stack<IPlayerMemento>();
-
-                _playerHistory[player.Id].Push(player.CreateMemento());
-
-
-                int oldX = player.X;
-                int oldY = player.Y;
-
-                int newX = player.X + input.Dx * player.GetSpeed();
-                int newY = player.Y + input.Dy * player.GetSpeed();
-
-                var result = Game.Instance.WorldFacade.TryMovePlayer(id, newX, newY);
-
-                if (result != null)
-                {
-                    ApplyTileEnterResult(player, player.X / GameConstants.TILE_SIZE, player.Y / GameConstants.TILE_SIZE, result);
-                }
-
-                var players = Game.Instance.WorldFacade.GetAllPlayers();
-                _collisionDetector.CheckCollisions(players);
-
-                // ✅ FIX 2: REMOVED BroadcastState() - only Game.Tick() broadcasts now
-                // Movement updates happen every 50ms via BroadcastState() in Game.Tick()
+                _mediator?.HandleInput(id, input);
             }
-        }
-
-        private void ApplyTileEnterResult(PlayerRole player, int tileX, int tileY, TileEnterResult result)
-        {
-            var strategy = result.StrategyOverride ?? DefaultMovementStrategy;
-            player.SetMovementStrategy(strategy);
-
-            if (result.SpawnClone)
-            {
-                CreatePlayerClone(player);
-            }
-
-            if (result.ReplaceWithGrass)
-            {
-                Game.Instance.WorldFacade.ReplaceTile(tileX, tileY, new GrassTile(tileX, tileY));
-                lock (_cherriesLock)
-                {
-                    eatenCherries.Add((tileX, tileY));
-                }
-
-                var tileUpdate = new TileUpdateMessage
-                {
-                    X = tileX,
-                    Y = tileY,
-                    TileType = "grass"
-                };
-                BroadcastToAll(tileUpdate);
-            }
-        }
-
-        private void CreatePlayerClone(PlayerRole originalPlayer)
-        {
-            PlayerRole clone = originalPlayer.DeepCopy();
-            clone.Id = GetNextPlayerId();
-            clone.X = originalPlayer.X + 64;
-            clone.Y = originalPlayer.Y + 64;
-
-            Game.Instance.WorldFacade.AddPlayer(clone);
-
-            var copyMessage = new CopyMadeMessage
-            {
-                OriginalPlayerId = originalPlayer.Id,
-                NewPlayerId = clone.Id,
-                OriginalRole = originalPlayer.RoleType,
-                NewRole = clone.RoleType,
-                CopyType = "deep"
-            };
-
-            if (clients.TryGetValue(originalPlayer.Id, out TcpClient? originalClient))
-            {
-                SendMessage(originalClient, copyMessage);
-                Console.WriteLine($"Sent copy_made message to client {originalPlayer.Id}");
-            }
-            else
-            {
-                Console.WriteLine($"Could not find client for player {originalPlayer.Id}");
-            }
-            
-            // ✅ Keep: Immediate broadcast needed for new entity
-            BroadcastState();
-            
-            originalPlayer.TestDeepCopy();
-            Console.WriteLine($"Created clone {clone.Id} from player {originalPlayer.Id} with {clone.GetType().Name} role");
-        }
-
-        private int GetNextPlayerId()
-        {
-            lock (idLock)
-            {
-                return nextPlayerId++;
-            }
-        }
-
-        public void OnGameEvent(GameEvent gameEvent)
-        {
-            Console.WriteLine($"Server received event: {gameEvent.EventType} at {gameEvent.Timestamp}");
-
-            if (gameEvent is CollisionEvent collision)
-            {
-                LogCollision(collision);
-            }
-        }
-
-        private void LogCollision(CollisionEvent collision)
-        {
-            var logEntry = $"{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss} - Collision: {collision.Entity1Id}({collision.Entity1Type}) vs {collision.Entity2Id}({collision.Entity2Type}) at ({collision.X:F1}, {collision.Y:F1})";
-            Console.WriteLine(logEntry);
         }
 
         public void BroadcastToAll<T>(T message)
@@ -271,8 +141,9 @@ namespace GameServer
                 for (int y = 0; y < Game.Instance.World.Map.Height; y++)
                 {
                     var tile = Game.Instance.WorldFacade.GetTileAt(x, y);
+                    var tileType = tile?.TileType ?? "grass";
 
-                    if (eatenCherries.Contains((x, y)))
+                    if (_mediator != null && _mediator.IsTileReplacedWithGrass(x, y))
                     {
                         mapState.Tiles.Add(new MapTileDto
                         {
@@ -287,13 +158,13 @@ namespace GameServer
                         {
                             X = x,
                             Y = y,
-                            TileType = tile.TileType
+                            TileType = tileType
                         });
                     }
                 }
             }
             SendMessage(client, mapState);
-            Console.WriteLine($"Sent current map state to new client (with {eatenCherries.Count} eaten cherries marked as grass)");
+            Console.WriteLine("Sent current map state to new client (with grass overrides applied)");
         }
 
         private void HandleClient(int id, TcpClient client)
@@ -313,42 +184,33 @@ namespace GameServer
                     {
                         case "input":
                             var input = JsonSerializer.Deserialize<InputMessage>(line);
-                            HandleInput(id, input);
+                            if (input != null)
+                                HandleInput(id, input);
                             break;
                         case "attack":
                             var attack = JsonSerializer.Deserialize<AttackMessage>(line);
                             if (attack != null)
                             {
                                 if (attack.PlayerId == 0) attack.PlayerId = id;
-                                OnReceiveAttack(attack);
+                                _mediator?.HandleAttack(attack);
                             }
                             break;
                         case "ping":
                             var ping = JsonSerializer.Deserialize<PingMessage>(line);
-                            SendMessage(client, new PongMessage { T = ping.T });
+                            if (ping != null)
+                            {
+                                SendMessage(client, new PongMessage { T = ping.T });
+                            }
                             break;
                         case "position_restore":
-                            if (_playerHistory.TryGetValue(id, out var stack) && stack.Count > 0)
-                            {
-                                var snap = stack.Pop();
-                                var p = Game.Instance.WorldFacade.GetPlayer(id);
-                                if (p != null)
-                                {
-                                    p.RestoreMemento(snap);
-                                    BroadcastState(); // notify all clients
-                                }
-                            }
-                            else
-                            {
-                                Console.WriteLine($"[UNDO] No memento for player {id}");
-                            }
+                            _mediator?.UndoLastMove(id);
                             break;
 
                         case "plant_action":
                             var plantAction = JsonSerializer.Deserialize<PlantActionMessage>(line);
                             if (plantAction != null)
                             {
-                                HandlePlantAction(plantAction);
+                                _mediator?.HandlePlantAction(plantAction);
                             }
                             break;
 
@@ -383,8 +245,8 @@ namespace GameServer
 
                     clientRoles.Remove(id);
                 }
-                
-                // ✅ Keep: Immediate broadcast needed when player disconnects
+
+                // Immediate broadcast needed when player disconnects
                 BroadcastState();
             }
         }
@@ -448,54 +310,30 @@ namespace GameServer
             }
         }
 
-        public void OnReceiveAttack(AttackMessage msg)
+        public void SendToClient<T>(int playerId, T message)
         {
-            var player = Game.Instance.WorldFacade.GetPlayer(msg.PlayerId);
-            if (player == null) return;
+            TcpClient? targetClient = null;
+            lock (locker)
+            {
+                clients.TryGetValue(playerId, out targetClient);
+            }
 
-            player.AttackStrategy?.ExecuteAttack(player, msg);
-
-            // ✅ Keep: Immediate broadcast for attack feedback
-            BroadcastState();
+            if (targetClient != null)
+            {
+                SendMessage(targetClient, message);
+            }
+            else
+            {
+                Console.WriteLine($"Could not find client for player {playerId}");
+            }
         }
 
-        /// <summary>
-        /// Handle plant action from client
-        /// </summary>
-        private void HandlePlantAction(PlantActionMessage msg)
+        internal static int GetNextPlayerIdStatic()
         {
-            Console.WriteLine($"[PLANT] Received plant action from player {msg.PlayerId} at ({msg.TileX}, {msg.TileY})");
-
-            // Validate tile position
-            if (msg.TileX < 0 || msg.TileY < 0 || 
-                msg.TileX >= Game.Instance.World.Map.Width || 
-                msg.TileY >= Game.Instance.World.Map.Height)
+            lock (IdLock)
             {
-                Console.WriteLine($"[PLANT] Invalid tile position: ({msg.TileX}, {msg.TileY})");
-                return;
+                return nextPlayerId++;
             }
-
-            // Get the tile
-            var tile = Game.Instance.WorldFacade.GetTileAt(msg.TileX, msg.TileY);
-            if (tile == null || !tile.Plantable)
-            {
-                Console.WriteLine($"[PLANT] Tile at ({msg.TileX}, {msg.TileY}) is not plantable");
-                return;
-            }
-
-            // Plant on the tile
-            var plant = Game.Instance.WorldFacade.PlantSeed(msg.TileX, msg.TileY, msg.PlantType);
-            
-            // Broadcast tile update to all clients
-            var tileUpdate = new TileUpdateMessage
-            {
-                X = msg.TileX,
-                Y = msg.TileY,
-                TileType = "WheatPlant"
-            };
-            
-            BroadcastToAll(tileUpdate);
-            Console.WriteLine($"[PLANT] Successfully planted {msg.PlantType} at ({msg.TileX}, {msg.TileY})");
         }
     }
 }
