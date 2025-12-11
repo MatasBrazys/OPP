@@ -126,6 +126,12 @@ namespace GameClient
                             BeginInvoke((Action)(() => UpdateTile(tileUpdate.X, tileUpdate.Y, tileUpdate.TileType)));
                         break;
 
+                    case "plant_update":
+                        var plantUpdate = JsonSerializer.Deserialize<PlantUpdateMessage>(raw);
+                        if (plantUpdate != null)
+                            BeginInvoke((Action)(() => UpdateTile(plantUpdate.X, plantUpdate.Y, plantUpdate.TileType)));
+                        break;
+
                     case "map_state":
                         var mapState = JsonSerializer.Deserialize<MapStateMessage>(raw);
                         if (mapState != null)
@@ -211,6 +217,8 @@ namespace GameClient
                 "fish" => new FishTile(x, y),
                 "water" => new WaterTile(x, y),
                 "sand" => new SandTile(x, y),
+                "wheat" => new WheatTile(x, y),
+                "wheatplant" => new WheatPlantTile(x, y),
                 _ => new GrassTile(x, y)
             };
 
@@ -399,6 +407,70 @@ namespace GameClient
             {
                 SpriteCache.Instance.PrintReport();
             }
+
+            // ===== PLANTING SYSTEM =====
+            if (e.KeyCode == Keys.I)
+            {
+                HandlePlantingAction();
+            }
+        }
+
+        /// <summary>
+        /// Handle planting action when player presses "I"
+        /// Gets player tile position and attempts to plant there
+        /// </summary>
+        private void HandlePlantingAction()
+        {
+            var player = _entityManager.GetPlayerRenderer(_myId);
+            if (player == null)
+            {
+                Console.WriteLine("[PLANT] No player found");
+                return;
+            }
+
+            // Get player position in pixels
+            var (px, py) = player.Position;
+            
+            // Convert to tile coordinates
+            int tileX = (int)(px / TileSize);
+            int tileY = (int)(py / TileSize);
+
+            Console.WriteLine($"[PLANT] DEBUG: Player at pixel ({px}, {py}) -> tile ({tileX}, {tileY})");
+
+            // Validate tile coordinates
+            if (tileX < 0 || tileY < 0 || tileX >= _map.Width || tileY >= _map.Height)
+            {
+                Console.WriteLine($"[PLANT] Invalid tile position: ({tileX}, {tileY})");
+                return;
+            }
+
+            // Get the tile
+            var tile = _map.GetTile(tileX, tileY);
+            if (tile == null)
+            {
+                Console.WriteLine($"[PLANT] No tile at ({tileX}, {tileY})");
+                return;
+            }
+
+            // Check if tile is plantable
+            if (!tile.Plantable)
+            {
+                Console.WriteLine($"[PLANT] ❌ Tile {tile.TileType} at ({tileX}, {tileY}) is not plantable");
+                return;
+            }
+
+            // Send plant action message to server
+            var plantMessage = new PlantActionMessage
+            {
+                PlayerId = _myId,
+                TileX = tileX,
+                TileY = tileY,
+                PlantType = "Wheat"
+            };
+
+            var json = System.Text.Json.JsonSerializer.Serialize(plantMessage);
+            _connection.SendRaw(json);
+            Console.WriteLine($"[PLANT] Sent plant request at ({tileX}, {tileY})");
         }
 
         protected override void Dispose(bool disposing)

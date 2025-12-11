@@ -8,21 +8,19 @@ namespace GameShared.Types.Players
 {
     public abstract class PlayerRole : Entity, ICloneable
     {
-        public int Health { get;  set; }
-        public string RoleType { get;  set; }
-        public Color RoleColor { get;  set; }
+        public int Health { get; set; }
+        public string RoleType { get; set; }
+        public Color RoleColor { get; set; }
         public IAttackStrategy AttackStrategy { get; set; }
 
         //cia reik abstract factory sudet, siuo metu as tiesiogiai facade sudedu situs, reiks settint juos i internal veliau. 
         //important!!!!!
         public float AttackRange { get; set; }
-        
+
         //public float AttackCooldown { get; set; }
-       // public float AttackDamage { get; set; }
+        // public float AttackDamage { get; set; }
 
         public override string EntityType => RoleType;
-       
-
         private IMovementStrategy _currentStrategy;
         private TileData? _previousTile = null;
 
@@ -41,8 +39,6 @@ namespace GameShared.Types.Players
             var copy = (PlayerRole)this.MemberwiseClone();
             return copy;
         }
-
-        
 
         protected PlayerRole(IMovementStrategy initialStrategy)
         {
@@ -97,6 +93,25 @@ namespace GameShared.Types.Players
             Console.WriteLine($"Original strategy after change: {original._currentStrategy.GetType().Name}");
             Console.WriteLine($"Clone strategy after change: {clone._currentStrategy.GetType().Name}");
         }
+
+        public IPlayerMemento CreateMemento()
+        {
+            // Clone strategy if possible; otherwise reuse
+            var strategyCopy = _currentStrategy is ICloneable c
+                ? (IMovementStrategy)c.Clone()
+                : _currentStrategy;
+
+            return new PlayerMemento(Id, X, Y, strategyCopy);
+        }
+
+        public void RestoreMemento(IPlayerMemento memento)
+        {
+            // Only the originator knows how to unpack the concrete memento
+            if (memento is not PlayerMemento snapshot || snapshot.Id != Id) return;
+
+            X = snapshot.X;
+            Y = snapshot.Y;
+            _currentStrategy = snapshot.MovementStrategy ?? new NormalMovement();
+        }
     }
 }
-

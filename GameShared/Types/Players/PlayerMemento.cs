@@ -1,26 +1,36 @@
+using System;
 using GameShared.Strategies;
 
 namespace GameShared.Types.Players
 {
     /// <summary>
-    /// Marker interface so external callers can store/pass mementos without seeing the internals.
+    /// Concrete memento storing player position and movement strategy.
+    /// Data is internal so only the originator can restore it.
     /// </summary>
-    public interface IPlayerMemento { }
-
-    // Concrete memento stays internal; only PlayerRole knows its fields.
-    internal sealed class PlayerMemento : IPlayerMemento
+    public sealed class PlayerMemento : IPlayerMemento
     {
-        internal int Id { get; }
-        internal int X { get; }
-        internal int Y { get; }
-        internal IMovementStrategy MovementStrategy { get; }
+        private readonly int _id;
+        private readonly int _x;
+        private readonly int _y;
+        private readonly IMovementStrategy _movementStrategy;
+        private readonly DateTime _snapshotDateUtc;
 
-        internal PlayerMemento(int id, int x, int y, IMovementStrategy strategy)
+        internal int Id => _id;
+        internal int X => _x;
+        internal int Y => _y;
+        internal IMovementStrategy MovementStrategy => _movementStrategy;
+
+        public PlayerMemento(int id, int x, int y, IMovementStrategy strategy)
         {
-            Id = id;
-            X = x;
-            Y = y;
-            MovementStrategy = strategy;
+            _id = id;
+            _x = x;
+            _y = y;
+            _movementStrategy = strategy;
+            _snapshotDateUtc = DateTime.UtcNow;
         }
+
+        string IPlayerMemento.GetName() => $"Player#{_id} @ ({_x},{_y})";
+
+        DateTime IPlayerMemento.GetSnapshotDate() => _snapshotDateUtc;
     }
 }

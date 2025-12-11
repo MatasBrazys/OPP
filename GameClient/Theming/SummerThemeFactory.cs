@@ -15,7 +15,9 @@ namespace GameClient.Theming
             ["Fish"] = ThemeSpriteLoader.LoadTileSprite("../assets/fish.png", Color.SteelBlue),
             ["Water"] = ThemeSpriteLoader.LoadTileSprite("../assets/water.png", Color.RoyalBlue),
             ["Sand"] = ThemeSpriteLoader.LoadTileSprite("../assets/sand.png", Color.Khaki),
-            ["Cherry"] = ThemeSpriteLoader.LoadTileSprite("../assets/cherry.jpg", Color.IndianRed)
+            ["Cherry"] = ThemeSpriteLoader.LoadTileSprite("../assets/cherry.jpg", Color.IndianRed),
+            ["Wheat"] = ThemeSpriteLoader.LoadTileSprite("../assets/wheat.png", Color.Gold),
+            ["WheatPlant"] = ThemeSpriteLoader.LoadTileSprite("../assets/WheatPlant.png", Color.OliveDrab)
         };
 
         public IReadOnlyDictionary<string, Image> Sprites => _sprites;

@@ -33,6 +33,10 @@ namespace GameClient.Managers
                 SpriteLoader.LoadSprite("../assets/sand.png").Image);
             SpriteRegistry.Register("Cherry", 
                 SpriteLoader.LoadSprite("../assets/cherry.jpg").Image);
+            SpriteRegistry.Register("Wheat", 
+                SpriteLoader.LoadSprite("../assets/wheat.png").Image);
+            SpriteRegistry.Register("WheatPlant", 
+                SpriteLoader.LoadSprite("../assets/WheatPlant.png").Image);
 
             // Load players
             SpriteRegistry.Register("Mage", 

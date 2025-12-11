@@ -1,4 +1,4 @@
-﻿//./GameShared/Types/Map/World.cs
+﻿// ./GameShared/Types/Map/World.cs
 using GameShared.Types.Players;
 using GameShared.Types.Enemies;
 
@@ -10,16 +10,13 @@ namespace GameShared.Types.Map
         public List<Entity> Entities { get; private set; }
 
         public World()
-        {   
+        {
             Map = new Map();
             Map.LoadFromText("../assets/map.txt");
-            // Console.WriteLine(Path.GetFullPath("../assets/map.json"));
 
-            System.Console.WriteLine( $"Map loaded: width={Map.Width}, height={Map.Height}");
+            Console.WriteLine($"Map loaded: width={Map.Width}, height={Map.Height}");
             var tile = Map.GetTile(0, 0);
-            //Console.WriteLine($"Tile X={tile.X}, Y={tile.Y}, Id={tile.Id}");
-
-            Console.WriteLine(tile.TileType); 
+            Console.WriteLine(tile.TileType);
             Entities = new List<Entity>();
         }
 
@@ -49,13 +46,13 @@ namespace GameShared.Types.Map
         {
             return Entities.OfType<Enemy>().ToList();
         }
+
         public void Update()
         {
             foreach (var entity in Entities)
             {
                 entity.Update();
             }
-          
         }
     }
 }

@@ -1,6 +1,7 @@
 ﻿// ./GameShared/Types/Map.cs
 using GameShared.Types.DTOs;
 using GameShared.Types.Map.Decorators;
+using static GameShared.Types.Map.CherryTile;
 
 namespace GameShared.Types.Map
 {
@@ -48,6 +49,7 @@ namespace GameShared.Types.Map
                         5 => new WaterTile(x, y),
                         6 => new SandTile(x, y),
                         7 => new CherryTile(x, y),
+                        8 => new WheatTile(x, y),
                         _ => new GrassTile(x, y)
                     };
                     tiles[x, y] = TileLoggingComposer.Wrap(tile);

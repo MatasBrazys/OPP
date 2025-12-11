@@ -10,6 +10,7 @@ public abstract class TileData:Entity
     private static readonly NormalMovement DefaultMovementStrategy = new();
 
     public virtual bool Passable => true;
+    public virtual bool Plantable => false;
     public abstract string TileType { get; }
     public override string EntityType => TileType;
     protected virtual IMovementStrategy MovementStrategy => DefaultMovementStrategy;

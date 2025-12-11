@@ -36,6 +36,9 @@ namespace GameServer
         private CollisionDetector _collisionDetector;
         private List<CommandHandler> _commandHandlers;
 
+        private readonly Dictionary<int, Stack<IPlayerMemento>> _playerHistory = new();
+
+
         public void Start(int port)
         {
             TileLogSink.IsEnabled = EnableTileLogging;
@@ -104,6 +107,11 @@ namespace GameServer
             {
                 var player = Game.Instance.WorldFacade.GetPlayer(id);
                 if (player == null) return;
+                if (!_playerHistory.ContainsKey(player.Id))
+                    _playerHistory[player.Id] = new Stack<IPlayerMemento>();
+
+                _playerHistory[player.Id].Push(player.CreateMemento());
+
 
                 int oldX = player.X;
                 int oldY = player.Y;
@@ -224,6 +232,14 @@ namespace GameServer
             }
         }
 
+        /// <summary>
+        /// Broadcast a message to all connected clients
+        /// </summary>
+        public void BroadcastMessage<T>(T message)
+        {
+            BroadcastToAll(message);
+        }
+
         private void SendStateTo(TcpClient client)
         {
             var snapshot = new StateMessage
@@ -311,6 +327,31 @@ namespace GameServer
                             var ping = JsonSerializer.Deserialize<PingMessage>(line);
                             SendMessage(client, new PongMessage { T = ping.T });
                             break;
+                        case "position_restore":
+                            if (_playerHistory.TryGetValue(id, out var stack) && stack.Count > 0)
+                            {
+                                var snap = stack.Pop();
+                                var p = Game.Instance.WorldFacade.GetPlayer(id);
+                                if (p != null)
+                                {
+                                    p.RestoreMemento(snap);
+                                    BroadcastState(); // notify all clients
+                                }
+                            }
+                            else
+                            {
+                                Console.WriteLine($"[UNDO] No memento for player {id}");
+                            }
+                            break;
+
+                        case "plant_action":
+                            var plantAction = JsonSerializer.Deserialize<PlantActionMessage>(line);
+                            if (plantAction != null)
+                            {
+                                HandlePlantAction(plantAction);
+                            }
+                            break;
+
                         default:
                             SendMessage(client, new ErrorMessage { Code = "bad_message", Detail = $"unknown type: {type}" });
                             break;
@@ -416,6 +457,45 @@ namespace GameServer
 
             // ✅ Keep: Immediate broadcast for attack feedback
             BroadcastState();
+        }
+
+        /// <summary>
+        /// Handle plant action from client
+        /// </summary>
+        private void HandlePlantAction(PlantActionMessage msg)
+        {
+            Console.WriteLine($"[PLANT] Received plant action from player {msg.PlayerId} at ({msg.TileX}, {msg.TileY})");
+
+            // Validate tile position
+            if (msg.TileX < 0 || msg.TileY < 0 || 
+                msg.TileX >= Game.Instance.World.Map.Width || 
+                msg.TileY >= Game.Instance.World.Map.Height)
+            {
+                Console.WriteLine($"[PLANT] Invalid tile position: ({msg.TileX}, {msg.TileY})");
+                return;
+            }
+
+            // Get the tile
+            var tile = Game.Instance.WorldFacade.GetTileAt(msg.TileX, msg.TileY);
+            if (tile == null || !tile.Plantable)
+            {
+                Console.WriteLine($"[PLANT] Tile at ({msg.TileX}, {msg.TileY}) is not plantable");
+                return;
+            }
+
+            // Plant on the tile
+            var plant = Game.Instance.WorldFacade.PlantSeed(msg.TileX, msg.TileY, msg.PlantType);
+            
+            // Broadcast tile update to all clients
+            var tileUpdate = new TileUpdateMessage
+            {
+                X = msg.TileX,
+                Y = msg.TileY,
+                TileType = "WheatPlant"
+            };
+            
+            BroadcastToAll(tileUpdate);
+            Console.WriteLine($"[PLANT] Successfully planted {msg.PlantType} at ({msg.TileX}, {msg.TileY})");
         }
     }
 }
