@@ -17,7 +17,7 @@ using GameServer.Facades;
 
 namespace GameServer
 {
-    public class Server : IClientNotifier
+    public class Server : IClientNotifier, IServerParticipant
     {
         static TcpListener? listener;
         static Dictionary<int, TcpClient> clients = new();
@@ -80,7 +80,32 @@ namespace GameServer
 
         public void InitializeMediator(GameWorldFacade facade)
         {
-            _mediator = new GameMediator(facade, this);
+            // create mediator (do not assign to _mediator yet)
+            var mediator = new GameMediator(facade, this);
+
+            // participant-driven subscription: ask each participant to subscribe themselves
+            // they will call mediator.RegisterParticipant(this) and then receive OnMediatorAttached
+            facade.SubscribeToMediator(mediator);
+            SubscribeToMediator(mediator);
+        }
+
+        // Participant-side helper: call this to subscribe the server to the mediator.
+        // Do NOT set _mediator here — OnMediatorAttached will be called by the mediator and should set it.
+        public void SubscribeToMediator(IGameMediator mediator)
+        {
+            mediator.RegisterParticipant(this);
+        }
+
+        // IMediatorParticipant implementation
+        public void OnMediatorAttached(IGameMediator mediator)
+        {
+            // mediator instance supplied by registry — keep reference
+            _mediator = mediator;
+        }
+
+        public void OnMediatorDetached()
+        {
+            _mediator = null;
         }
 
         private void HandleInput(int id, InputMessage input)

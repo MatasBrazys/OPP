@@ -3,11 +3,24 @@ using GameServer;
 using GameServer.Events;
 using GameShared.Types;
 using static GameServer.Events.GameEvent;
+using GameServer.Mediator;
+using System.Linq;
+using System.Collections.Generic;
 
 namespace GameServer.Collision
 {
-    public class CollisionDetector : Subject
+    // Implement IMediatorParticipant so the detector can subscribe itself.
+    public class CollisionDetector : Subject, IMediatorParticipant
     {
+        private IGameMediator? _mediator;
+
+        // Participant-driven helper: call this from bootstrap to subscribe.
+        public void SubscribeToMediator(IGameMediator mediator) => mediator.RegisterParticipant(this);
+
+        // IMediatorParticipant lifecycle callbacks
+        public void OnMediatorAttached(IGameMediator mediator) => _mediator = mediator;
+        public void OnMediatorDetached() => _mediator = null;
+
         public void CheckCollisions(IEnumerable<Entity> entities) // ✅ Changed from object to Entity
         {
             var entityList = entities.ToList();

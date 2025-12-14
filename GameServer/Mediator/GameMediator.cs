@@ -21,29 +21,117 @@ namespace GameServer.Mediator
     {
         private readonly GameWorldFacade _worldFacade;
         private readonly IClientNotifier _notifier;
-        private readonly CollisionDetector _collisionDetector;
+        private readonly CollisionDetector _collision_detector;
         private readonly List<CommandHandler> _commandHandlers;
         private readonly Dictionary<int, Stack<IPlayerMemento>> _playerHistory = new();
-        private readonly HashSet<(int x, int y)> _grassTiles = new();
-        private readonly object _historyLock = new();
-        private readonly object _grassLock = new();
+        private readonly HashSet<(int x, int y)> _grass_tiles = new();
+        private readonly object _history_lock = new();
+        private readonly object _grass_lock = new();
         private readonly IMovementStrategy _defaultMovementStrategy = new NormalMovement();
+
+        // participant registry
+        private readonly List<IMediatorParticipant> _participants = new();
+        private readonly object _participantsLock = new();
 
         public GameMediator(GameWorldFacade worldFacade, IClientNotifier notifier)
         {
             _worldFacade = worldFacade;
             _notifier = notifier;
 
-            _collisionDetector = new CollisionDetector();
+            _collision_detector = new CollisionDetector(); // keep collision detector behavior
+
+            var collisionHandler = new CollisionCommandHandler(_notifier);
             _commandHandlers = new List<CommandHandler>
             {
-                new CollisionCommandHandler(_notifier)
+                collisionHandler
             };
 
+            // NOTE: do not register the world facade or collision detector here.
+            // Those components will subscribe themselves (participant-driven).
+            // Keep registering internal handlers created by the mediator if you want them treated as internal participants.
+            RegisterParticipant(collisionHandler);
+
             // Mediator is the single observer of collisions; it dispatches to handlers.
-            _collisionDetector.RegisterObserver(this);
+            _collision_detector.RegisterObserver(this);
         }
 
+        // Public API so external components can subscribe/unsubscribe.
+        public void RegisterParticipant(IMediatorParticipant participant)
+        {
+            if (participant == null) return;
+
+            var callAttach = false;
+            lock (_participantsLock)
+            {
+                if (!_participants.Contains(participant))
+                {
+                    _participants.Add(participant);
+                    callAttach = true;
+                }
+            }
+
+            if (callAttach)
+            {
+                // notify outside lock
+                participant.OnMediatorAttached(this);
+            }
+        }
+
+        public void RemoveParticipant(IMediatorParticipant participant)
+        {
+            if (participant == null) return;
+
+            var removed = false;
+            lock (_participantsLock)
+            {
+                removed = _participants.Remove(participant);
+            }
+
+            if (removed)
+            {
+                participant.OnMediatorDetached();
+            }
+        }
+
+        // Try to get a single participant of given type/interface (first match).
+        public bool TryGetParticipant<T>(out T participant) where T : class
+        {
+            lock (_participantsLock)
+            {
+                foreach (var p in _participants)
+                {
+                    if (p is T t)
+                    {
+                        participant = t;
+                        return true;
+                    }
+                }
+            }
+
+            participant = null;
+            return false;
+        }
+
+        // Get all registered participants assignable to T.
+        public IEnumerable<T> GetParticipants<T>() where T : class
+        {
+            lock (_participantsLock)
+            {
+                // materialize to avoid returning a collection that's iterated outside the lock
+                return _participants.OfType<T>().ToList();
+            }
+        }
+
+        // Optional helper: check if some participant of type T is registered
+        public bool HasParticipant<T>() where T : class
+        {
+            lock (_participantsLock)
+            {
+                return _participants.Any(p => p is T);
+            }
+        }
+
+        // --- existing game logic methods below (unchanged) ---
         public void HandleInput(int playerId, InputMessage input)
         {
             if (input.Dx == 0 && input.Dy == 0)
@@ -65,7 +153,7 @@ namespace GameServer.Mediator
             }
 
             var players = _worldFacade.GetAllPlayers();
-            _collisionDetector.CheckCollisions(players);
+            _collision_detector.CheckCollisions(players);
         }
 
         public void HandleAttack(AttackMessage attack)
@@ -114,7 +202,7 @@ namespace GameServer.Mediator
         public void UndoLastMove(int playerId)
         {
             Stack<IPlayerMemento>? stack;
-            lock (_historyLock)
+            lock (_history_lock)
             {
                 _playerHistory.TryGetValue(playerId, out stack);
             }
@@ -135,9 +223,9 @@ namespace GameServer.Mediator
 
         public bool IsTileReplacedWithGrass(int tileX, int tileY)
         {
-            lock (_grassLock)
+            lock (_grass_lock)
             {
-                return _grassTiles.Contains((tileX, tileY));
+                return _grass_tiles.Contains((tileX, tileY));
             }
         }
 
@@ -159,7 +247,7 @@ namespace GameServer.Mediator
 
         private void PushHistory(PlayerRole player)
         {
-            lock (_historyLock)
+            lock (_history_lock)
             {
                 if (!_playerHistory.ContainsKey(player.Id))
                 {
@@ -183,9 +271,9 @@ namespace GameServer.Mediator
             if (result.ReplaceWithGrass)
             {
                 _worldFacade.ReplaceTile(tileX, tileY, new GrassTile(tileX, tileY));
-                lock (_grassLock)
+                lock (_grass_lock)
                 {
-                    _grassTiles.Add((tileX, tileY));
+                    _grass_tiles.Add((tileX, tileY));
                 }
 
                 var tileUpdate = new TileUpdateMessage
@@ -220,7 +308,7 @@ namespace GameServer.Mediator
             _notifier.BroadcastState();
 
             originalPlayer.TestDeepCopy();
-            Console.WriteLine($"Created clone {clone.Id} from player {originalPlayer.Id} with {clone.GetType().Name} role");
+            Console.WriteLine($"Created clone {clone.Id} from player {originalPlayer.Id} with {originalPlayer.GetType().Name} role");
         }
 
         private int GetNextPlayerId()

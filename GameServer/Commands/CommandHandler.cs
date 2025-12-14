@@ -6,10 +6,25 @@ using GameServer.Mediator;
 
 namespace GameServer.Commands
 {
-    public abstract class CommandHandler : IObserver
+    // Command handlers are observers of game events and may need the mediator reference.
+    public abstract class CommandHandler : IObserver, IMediatorParticipant
     {
+        // will be set when mediator attaches
+        protected IGameMediator? Mediator { get; private set; }
+
         public abstract void OnGameEvent(GameEvent gameEvent);
         public abstract string[] HandledEventTypes { get; }
+
+        // IMediatorParticipant implementation
+        public virtual void OnMediatorAttached(IGameMediator mediator)
+        {
+            Mediator = mediator;
+        }
+
+        public virtual void OnMediatorDetached()
+        {
+            Mediator = null;
+        }
     }
 
     public class CollisionCommandHandler : CommandHandler
@@ -46,6 +61,9 @@ namespace GameServer.Commands
             };
 
             _notifier.BroadcastToAll(collisionMessage);
+
+            // Example usage of mediator (safe because OnMediatorAttached ensures Mediator is set)
+            // Mediator?.IsTileReplacedWithGrass(...);
         }
     }
 }

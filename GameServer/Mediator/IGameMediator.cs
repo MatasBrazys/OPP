@@ -11,5 +11,9 @@ namespace GameServer.Mediator
         void HandlePlantAction(PlantActionMessage action);
         void UndoLastMove(int playerId);
         bool IsTileReplacedWithGrass(int tileX, int tileY);
+
+        // subscription API — participants call these to register/unregister themselves
+        void RegisterParticipant(IMediatorParticipant participant);
+        void RemoveParticipant(IMediatorParticipant participant);
     }
 }

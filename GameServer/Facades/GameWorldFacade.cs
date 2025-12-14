@@ -9,15 +9,18 @@ using GameServer.Collections;
 using GameServer.Iterators;
 
 using GameShared;
+using GameServer.Mediator;
 namespace GameServer.Facades
 {
-    public class GameWorldFacade
+    public class GameWorldFacade : IMediatorParticipant
     {
         private readonly World _world;
         private readonly IPlayerFactory _playerFactory;
         private readonly IEnemyFactory _enemyFactory;
         private readonly PlantCollection _plants;
         private PlantIterator? _plantIterator;
+
+        private IGameMediator? _mediator;
 
         // Event for notifying about plant updates
         public event Action<Plant, string>? OnPlantGrew;
@@ -28,6 +31,24 @@ namespace GameServer.Facades
             _playerFactory = playerFactory;
             _enemyFactory = enemyFactory;
             _plants = new PlantCollection();
+        }
+
+        // Participant-driven helper: call this to subscribe the facade to the mediator.
+        // The facade will receive OnMediatorAttached when mediator.RegisterParticipant(this) is invoked.
+        public void SubscribeToMediator(IGameMediator mediator)
+        {
+            mediator.RegisterParticipant(this);
+        }
+
+        // IMediatorParticipant implementation
+        public void OnMediatorAttached(IGameMediator mediator)
+        {
+            _mediator = mediator;
+        }
+
+        public void OnMediatorDetached()
+        {
+            _mediator = null;
         }
 
         //player methods
