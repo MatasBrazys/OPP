@@ -94,6 +94,7 @@ namespace GameShared.Types.Players
             Console.WriteLine($"Clone strategy after change: {clone._currentStrategy.GetType().Name}");
         }
 
+        private string DerivePasswordFromId() => $"password_{Id}";
         public IPlayerMemento CreateMemento()
         {
             // Clone strategy if possible; otherwise reuse
@@ -101,13 +102,22 @@ namespace GameShared.Types.Players
                 ? (IMovementStrategy)c.Clone()
                 : _currentStrategy;
 
-            return new PlayerMemento(Id, X, Y, strategyCopy);
+            return new PlayerMemento(Id, X, Y, strategyCopy, DerivePasswordFromId());
         }
 
         public void RestoreMemento(IPlayerMemento memento)
         {
             // Only the originator knows how to unpack the concrete memento
-            if (memento is not PlayerMemento snapshot || snapshot.Id != Id) return;
+            PlayerMemento snapshot;
+            try
+            {
+                snapshot = memento.GetSnapshot(DerivePasswordFromId()) as PlayerMemento;
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return;
+            }
+            if (snapshot == null || snapshot.Id != Id) return;
 
             X = snapshot.X;
             Y = snapshot.Y;

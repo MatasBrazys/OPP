@@ -10,5 +10,6 @@ namespace GameShared.Types.Players
     {
         string GetName();
         DateTime GetSnapshotDate();
+        public IPlayerMemento GetSnapshot(string password);
     }
 }
