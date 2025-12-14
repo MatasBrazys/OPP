@@ -1,21 +1,34 @@
-﻿// ./GameShared/Types/Map.cs
+// ./GameShared/Types/Map.cs
+using System.Diagnostics;
 using GameShared.Types.DTOs;
 using GameShared.Types.Map.Decorators;
 using static GameShared.Types.Map.CherryTile;
 
 namespace GameShared.Types.Map
 {
-    public class Map
+    public class Map : IMap
     {
         public int Width { get; private set; }
         public int Height { get; private set; }
         private TileData[,] tiles;
 
+        // Optional instrumentation for demos; enable via Map.LogLoadMetrics = true.
+        public static bool LogLoadMetrics = false;
+
         public Map()
         {
         }
+
         public void LoadFromText(string filePath)
         {
+            Stopwatch? sw = null;
+            long before = 0;
+            if (LogLoadMetrics)
+            {
+                sw = Stopwatch.StartNew();
+                before = GC.GetTotalMemory(false);
+            }
+
             string[] lines = File.ReadAllLines(filePath);
 
             if (lines.Length < 2)
@@ -55,12 +68,20 @@ namespace GameShared.Types.Map
                     tiles[x, y] = TileLoggingComposer.Wrap(tile);
                 }
             }
+
+            if (LogLoadMetrics && sw != null)
+            {
+                sw.Stop();
+                var after = GC.GetTotalMemory(false);
+                Console.WriteLine($"[Map] Loaded from '{filePath}' in {sw.ElapsedMilliseconds} ms, Δmem={after - before} bytes");
+            }
         }
+
         public TileData GetTile(int x, int y)
         {
             return tiles[x, y];
-        
         }
+
         public void SetTile(int x, int y, TileData newTile)
         {
             if (x >= 0 && x < Width && y >= 0 && y < Height)
@@ -68,6 +89,7 @@ namespace GameShared.Types.Map
                 tiles[x, y] = TileLoggingComposer.Wrap(newTile);
             }
         }
+
         public void LoadFromDimensions(int width, int height)
         {
             Width = width;

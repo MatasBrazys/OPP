@@ -1,22 +1,36 @@
-﻿// ./GameShared/Types/Map/World.cs
-using GameShared.Types.Players;
+// ./GameShared/Types/Map/World.cs
 using GameShared.Types.Enemies;
+using GameShared.Types.Players;
 
 namespace GameShared.Types.Map
 {
     public class World
     {
-        public Map Map { get; private set; }
+        // Toggle these to demo proxy vs direct map load during the lecture.
+        private const bool UseLazyMapProxy = false;      // set to false to force eager load
+        private const bool LogMapLoadMetrics = true;    // prints load time/memory
+        private const string MapPath = "../assets/map.txt";
+
+        public IMap Map { get; private set; }
         public List<Entity> Entities { get; private set; }
 
         public World()
         {
-            Map = new Map();
-            Map.LoadFromText("../assets/map.txt");
+            GameShared.Types.Map.Map.LogLoadMetrics = LogMapLoadMetrics;
 
-            Console.WriteLine($"Map loaded: width={Map.Width}, height={Map.Height}");
-            var tile = Map.GetTile(0, 0);
-            Console.WriteLine(tile.TileType);
+            if (UseLazyMapProxy)
+            {
+                Map = new LazyMapProxy(MapPath);
+                Console.WriteLine("Map proxy enabled (actual map will load on first access)");
+            }
+            else
+            {
+                var directMap = new Map();
+                directMap.LoadFromText(MapPath);
+                Map = directMap;
+                Console.WriteLine($"Map loaded eagerly from '{MapPath}'");
+            }
+
             Entities = new List<Entity>();
         }
 
@@ -38,7 +52,7 @@ namespace GameShared.Types.Map
 
         public List<PlayerRole> GetPlayers()
         {
-            //Console.WriteLine($"World.GetPlayers: world={GetHashCode()}, count={Entities.OfType<PlayerRole>().Count()}"); 
+            //Console.WriteLine($"World.GetPlayers: world={GetHashCode()}, count={Entities.OfType<PlayerRole>().Count()}");
             return Entities.OfType<PlayerRole>().ToList();
         }
 

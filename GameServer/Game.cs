@@ -16,6 +16,9 @@ namespace GameServer
         private static readonly Lazy<Game> _instance = new(() => new Game());
         public static Game Instance => _instance.Value;
 
+        // Demo toggles (for lecture). Set to false to start with an empty world.
+        private const bool SeedDemoEnemies = true;
+        private const bool SeedDemoPlants = true;
         public Server Server { get; private set; }
         public World World { get; private set; }
         public IPlayerFactory PlayerFactory { get; private set; }
@@ -58,27 +61,31 @@ namespace GameServer
 
         private void InitializeWorld()
         {
-            // Create initial game objects or enemies
-            var slime = EnemyFactory.CreateEnemy("slime", 9001, 400, 800);
-            slime.RoamingAI = new LeftRightRoam(slime.X, 200, 2); // 200px roam, 2px per tick
-            World.AddEntity(slime);
+            if (SeedDemoEnemies)
+            {
+                var slime = EnemyFactory.CreateEnemy("slime", 9001, 400, 800);
+                slime.RoamingAI = new LeftRightRoam(slime.X, 200, 2); // 200px roam, 2px per tick
+                World.AddEntity(slime);
 
+                var slime1 = EnemyFactory.CreateEnemy("slime", 9002, 850, 400);
+                slime1.RoamingAI = new LeftRightRoam(slime1.X, 100, 2); // 200px roam, 2px per tick
+                World.AddEntity(slime1);
+            }
 
-            var slime1 = EnemyFactory.CreateEnemy("slime", 9002, 850, 400);
-            slime1.RoamingAI = new LeftRightRoam(slime1.X, 100, 2); // 200px roam, 2px per tick
-            World.AddEntity(slime1);
+            if (SeedDemoPlants)
+            {
+                // ===== DEMO: Plant some wheat for testing =====
+                Console.WriteLine("\nPlanting demo wheat seeds...");
+                WorldFacade.PlantSeed(5, 5, "Wheat");
+                WorldFacade.PlantSeed(6, 6, "Wheat");
+                WorldFacade.PlantSeed(7, 5, "Wheat");
+                Console.WriteLine($"Total plants: {WorldFacade.GetAllPlants().Count}\n");
+                // ===============================================
 
-            // ===== DEMO: Plant some wheat for testing =====
-            Console.WriteLine("\nPlanting demo wheat seeds...");
-            WorldFacade.PlantSeed(5, 5, "Wheat");
-            WorldFacade.PlantSeed(6, 6, "Wheat");
-            WorldFacade.PlantSeed(7, 5, "Wheat");
-            Console.WriteLine($"Total plants: {WorldFacade.GetAllPlants().Count}\n");
-            // ===============================================
-
-            // ===== COMPOSITE PATTERN DEMO: Nested plant groups =====
-            WorldFacade.CreateDemoFarmWithComposites();
-            // ========================================================
+                // ===== COMPOSITE PATTERN DEMO: Nested plant groups =====
+                WorldFacade.CreateDemoFarmWithComposites();
+                // ========================================================
+            }
 
             // Add more enemies or objects as needed
         }
