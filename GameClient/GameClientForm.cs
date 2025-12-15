@@ -15,6 +15,9 @@ using GameClient.Theming;
 using GameClient.Rendering.Bridge;
 using GameClient.Rendering.Flyweight;
 using GameClient.Animation;
+using System.Threading;
+using System.Threading.Tasks;
+using System.Linq;
 
 namespace GameClient
 {
@@ -27,7 +30,7 @@ namespace GameClient
         private readonly AnimationManager _animManager;
         private readonly InputManager _inputManager;
         private readonly CommandInvoker _commandInvoker;
-       
+
         private int _myId;
         private readonly System.Windows.Forms.Timer _gameTimer;
         private Map _map = new();
@@ -53,6 +56,10 @@ namespace GameClient
 
         private Bitmap? _mapCache;
         private bool _mapCacheDirty = true;
+
+        // Auto-harvest cancellation token (client-driven walking + harvest)
+        private CancellationTokenSource? _autoHarvestCts;
+        private bool _autoHarvestActive = false;
 
         public GameClientForm()
         {
@@ -160,6 +167,14 @@ namespace GameClient
                                 _entityManager.UpdateEnemies(state.Enemies);
                                 Invalidate();
                             }));
+                        }
+                        break;
+
+                    case "auto_harvest_plan":
+                        var plan = JsonSerializer.Deserialize<AutoHarvestPlanMessage>(raw);
+                        if (plan != null)
+                        {
+                            StartAutoHarvestRoutine(plan.Targets);
                         }
                         break;
 
@@ -323,13 +338,13 @@ namespace GameClient
             // Clear and re-register only tile and enemy sprites
             SpriteRegistry.Clear();
             RegisterThemeSprites();
-            
+
             // Re-register player animation sprites (theme-independent)
             WalkSpriteLoader.LoadAllRoleAnimations("../assets/animations/");
-            
+
             // Update existing enemy sprites
             RefreshEnemySprites();
-            
+
             MarkMapCacheDirty();
             Invalidate();
         }
@@ -337,9 +352,9 @@ namespace GameClient
         // ✅ FIXED: Only register tiles and enemies
         private void RegisterThemeSprites()
         {
-            foreach (var kvp in _tileSpriteSet.Sprites) 
+            foreach (var kvp in _tileSpriteSet.Sprites)
                 SpriteRegistry.Register(kvp.Key, kvp.Value);
-            foreach (var kvp in _enemySpriteSet.Sprites) 
+            foreach (var kvp in _enemySpriteSet.Sprites)
                 SpriteRegistry.Register(kvp.Key, kvp.Value);
         }
 
@@ -431,6 +446,13 @@ namespace GameClient
             {
                 HandleHarvestAction();
             }
+
+            // ===== AUTO-HARVEST (T key) =====
+            if (e.KeyCode == Keys.T)
+            {
+                // Toggle auto-harvest routine which moves player and harvests wheat tiles sequentially
+                ToggleAutoHarvest();
+            }
         }
 
         /// <summary>
@@ -448,7 +470,7 @@ namespace GameClient
 
             // Get player position in pixels
             var (px, py) = player.Position;
-            
+
             // Convert to tile coordinates
             int tileX = (int)(px / TileSize);
             int tileY = (int)(py / TileSize);
@@ -506,7 +528,7 @@ namespace GameClient
 
             // Get player position in pixels
             var (px, py) = player.Position;
-            
+
             // Convert to tile coordinates
             int tileX = (int)(px / TileSize);
             int tileY = (int)(py / TileSize);
@@ -546,6 +568,140 @@ namespace GameClient
             var json = System.Text.Json.JsonSerializer.Serialize(harvestMessage);
             _connection.SendRaw(json);
             Console.WriteLine($"[HARVEST] Sent harvest request at ({tileX}, {tileY})");
+        }
+
+        /// <summary>
+        /// Toggle and start auto-harvest routine: move to each Wheat tile and harvest it.
+        /// Pressing W will start the routine; pressing W again cancels it.
+        /// </summary>
+        private void ToggleAutoHarvest()
+        {
+            if (_autoHarvestCts != null)
+            {
+                Console.WriteLine("[AUTO] Cancelling auto-harvest...");
+                _autoHarvestCts.Cancel();
+                _autoHarvestCts.Dispose();
+                _autoHarvestCts = null;
+                _autoHarvestActive = false;
+                return;
+            }
+
+            _autoHarvestCts = new CancellationTokenSource();
+            _autoHarvestActive = true;
+            var request = new GameShared.Messages.AutoHarvestMessage { PlayerId = _myId };
+            var json = System.Text.Json.JsonSerializer.Serialize(request);
+            _connection.SendRaw(json);
+            Console.WriteLine("[AUTO] Requested auto-harvest plan from server");
+        }
+
+        private void StartAutoHarvestRoutine(List<AutoHarvestTarget> targets)
+        {
+            if (targets == null || targets.Count == 0)
+            {
+                Console.WriteLine("[AUTO] No mature plants to harvest");
+                _autoHarvestCts?.Dispose();
+                _autoHarvestCts = null;
+                return;
+            }
+
+            // If user cancelled before plan arrived, skip
+            if (_autoHarvestCts == null)
+            {
+                Console.WriteLine("[AUTO] Plan ignored (no active request)");
+                return;
+            }
+
+            var token = _autoHarvestCts.Token;
+
+                Task.Run(async () =>
+                {
+                    int lastX = -1, lastY = -1;
+                    try
+                    {
+                    // Helper to get player pixel position on UI thread
+                    (int px, int py) GetPlayerPos()
+                    {
+                        (int, int) pos = (0, 0);
+                        this.Invoke((Action)(() =>
+                        {
+                            var pr = _entityManager.GetPlayerRenderer(_myId);
+                            if (pr != null) pos = ((int)pr.Position.X, (int)pr.Position.Y);
+                        }));
+                        return pos;
+                    }
+
+                    // Start order: nearest from current position
+                    var ordered = targets.ToList();
+                    var startPos = GetPlayerPos();
+                    int startTileX = startPos.px / TileSize;
+                    int startTileY = startPos.py / TileSize;
+                    ordered.Sort((a, b) => Math.Abs(a.X - startTileX) + Math.Abs(a.Y - startTileY)
+                                         - (Math.Abs(b.X - startTileX) + Math.Abs(b.Y - startTileY)));
+
+                    foreach (var t in ordered)
+                    {
+                        if (token.IsCancellationRequested) break;
+
+                        Console.WriteLine($"[AUTO] Targeting {t.PlantType} at ({t.X}, {t.Y})");
+
+                        int targetPx = t.X * TileSize + TileSize / 2;
+                        int targetPy = t.Y * TileSize + TileSize / 2;
+
+                        // Move until within threshold of tile center
+                        while (!token.IsCancellationRequested)
+                        {
+                            var (cx, cy) = GetPlayerPos();
+                            int dx = targetPx - cx;
+                            int dy = targetPy - cy;
+                            int distSq = dx * dx + dy * dy;
+                            if (distSq <= (TileSize / 2) * (TileSize / 2))
+                            {
+                                break; // arrived
+                            }
+
+                            int stepX = Math.Sign(dx);
+                            int stepY = Math.Sign(dy);
+
+                            var input = new InputMessage { Dx = stepX, Dy = stepY };
+                            var inputJson = System.Text.Json.JsonSerializer.Serialize(input);
+                            _connection.SendRaw(inputJson);
+
+                            await Task.Delay(80, token);
+                        }
+
+                        if (token.IsCancellationRequested) break;
+
+                        var harvest = new HarvestActionMessage { PlayerId = _myId, TileX = t.X, TileY = t.Y };
+                        var harvestJson = System.Text.Json.JsonSerializer.Serialize(harvest);
+                        _connection.SendRaw(harvestJson);
+                        Console.WriteLine($"[AUTO] Sent harvest for ({t.X}, {t.Y})");
+
+                        await Task.Delay(250, token);
+
+                        lastX = t.X;
+                        lastY = t.Y;
+                    }
+                }
+                catch (OperationCanceledException) { }
+                catch (Exception ex)
+                {
+                    Console.WriteLine("[AUTO] Error: " + ex);
+                }
+                finally
+                {
+                    // Stop residual movement by sending a zero input once
+                    var stop = new InputMessage { Dx = 0, Dy = 0 };
+                    var stopJson = System.Text.Json.JsonSerializer.Serialize(stop);
+                    _connection.SendRaw(stopJson);
+                    Console.WriteLine("[AUTO] Sent zero-input to stop movement");
+                    _autoHarvestCts?.Dispose();
+                    _autoHarvestCts = null;
+                    _autoHarvestActive = false;
+                    // Force a repaint so sprites/tiles settle after the sequence
+                    BeginInvoke((Action)(Invalidate));
+                    Console.WriteLine("[AUTO] Auto-harvest routine finished");
+                }
+            }, token);
         }
 
         protected override void Dispose(bool disposing)

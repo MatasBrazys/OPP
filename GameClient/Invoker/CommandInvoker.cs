@@ -58,6 +58,6 @@ public class CommandInvoker
         _history.Clear();
         Console.WriteLine("[UNDO] Command history cleared");
     }
-    
+
 
 }

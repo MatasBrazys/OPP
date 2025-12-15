@@ -10,10 +10,11 @@ namespace GameServer.Mediator
         void HandleAttack(AttackMessage attack);
         void HandlePlantAction(PlantActionMessage action);
         void HandleHarvestAction(HarvestActionMessage action);
+        void HandleAutoHarvest(AutoHarvestMessage action);
         void UndoLastMove(int playerId);
         bool IsTileReplacedWithGrass(int tileX, int tileY);
 
-        // subscription API — participants call these to register/unregister themselves
+        // subscription API â€” participants call these to register/unregister themselves
         void RegisterParticipant(IMediatorParticipant participant);
         void RemoveParticipant(IMediatorParticipant participant);
 

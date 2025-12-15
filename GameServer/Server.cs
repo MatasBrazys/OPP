@@ -90,7 +90,7 @@ namespace GameServer
         }
 
         // Participant-side helper: call this to subscribe the server to the mediator.
-        // Do NOT set _mediator here — OnMediatorAttached will be called by the mediator and should set it.
+        // Do NOT set _mediator here â€” OnMediatorAttached will be called by the mediator and should set it.
         public void SubscribeToMediator(IGameMediator mediator)
         {
             mediator.RegisterParticipant(this);
@@ -99,7 +99,7 @@ namespace GameServer
         // IMediatorParticipant implementation
         public void OnMediatorAttached(IGameMediator mediator)
         {
-            // mediator instance supplied by registry — keep reference
+            // mediator instance supplied by registry â€” keep reference
             _mediator = mediator;
         }
 
@@ -246,6 +246,14 @@ namespace GameServer
                                 _mediator?.HandleHarvestAction(harvestAction);
                             }
                             break;
+
+                            case "auto_harvest":
+                                var autoHarvest = JsonSerializer.Deserialize<AutoHarvestMessage>(line);
+                                if (autoHarvest != null)
+                                {
+                                    _mediator?.HandleAutoHarvest(autoHarvest);
+                                }
+                                break;
 
                         default:
                             SendMessage(client, new ErrorMessage { Code = "bad_message", Detail = $"unknown type: {type}" });
