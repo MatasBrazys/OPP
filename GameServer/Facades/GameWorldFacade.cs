@@ -9,6 +9,7 @@ using GameServer.Collections;
 using GameServer.Iterators;
 
 using GameShared;
+using GameShared.Types.Tasks;
 using GameServer.Mediator;
 namespace GameServer.Facades
 {
@@ -19,6 +20,7 @@ namespace GameServer.Facades
         private readonly IEnemyFactory _enemyFactory;
         private readonly PlantCollection _plants;
         private PlantIterator? _plantIterator;
+        private readonly TaskManager _taskManager;
 
         private IGameMediator? _mediator;
 
@@ -31,6 +33,10 @@ namespace GameServer.Facades
             _playerFactory = playerFactory;
             _enemyFactory = enemyFactory;
             _plants = new PlantCollection();
+            _taskManager = new TaskManager();
+
+            // Subscribe to task completion events
+            _taskManager.OnTaskCompleted += HandleTaskCompleted;
         }
 
         // Participant-driven helper: call this to subscribe the facade to the mediator.
@@ -202,6 +208,17 @@ namespace GameServer.Facades
                 // Replace plant tile with grass
                 _world.Map.SetTile(plant.X, plant.Y, new GrassTile(plant.X, plant.Y));
                 Console.WriteLine($"Harvested plant at ({plant.X}, {plant.Y})");
+
+                // Notify tasks about harvest
+                var activeTasks = _taskManager.GetActiveTasks();
+                foreach (var task in activeTasks)
+                {
+                    if (task is PlantTask plantTask)
+                    {
+                        plantTask.OnHarvestPlant();
+                        _taskManager.Update();
+                    }
+                }
             }
         }
 
@@ -449,6 +466,56 @@ namespace GameServer.Facades
             }
 
             return stats;
+        }
+
+        /// <summary>
+        /// Task management methods
+        /// </summary>
+        public void AddTask(ITask task)
+        {
+            _taskManager.AddTask(task);
+        }
+
+        public List<ITask> GetActiveTasks()
+        {
+            return _taskManager.GetActiveTasks();
+        }
+
+        public List<ITask> GetAllTasks()
+        {
+            return _taskManager.GetAllTasks();
+        }
+
+        public ITask? GetTaskById(int taskId)
+        {
+            return _taskManager.GetTaskById(taskId);
+        }
+
+        public void UpdateTasks()
+        {
+            _taskManager.Update();
+        }
+
+        public void DisplayActiveTasks()
+        {
+            _taskManager.DisplayActiveTasks();
+        }
+
+        private void HandleTaskCompleted(ITask task)
+        {
+            Console.WriteLine($"  !!!!!!!!!!!!!!!!! TASK COMPLETED: {task.Description.PadRight(30)} !!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
+
+            // Broadcast task completion to clients
+            if (_mediator?.TryGetParticipant<IClientNotifier>(out var notifier) ?? false)
+            {
+                var taskCompletedMessage = new GameShared.Messages.TaskCompletedMessage
+                {
+                    TaskId = task.Id,
+                    Description = task.Description
+                };
+
+                notifier.BroadcastToAll(taskCompletedMessage);
+            }
         }
     }
 }

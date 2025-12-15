@@ -190,6 +190,18 @@ namespace GameClient
                             MessageBox.Show($"Server error: {err.Detail}");
                         break;
 
+                    case "task_completed":
+                        var taskCompleted = JsonSerializer.Deserialize<GameShared.Messages.TaskCompletedMessage>(raw);
+                        if (taskCompleted != null)
+                        {
+                            BeginInvoke((Action)(() =>
+                            {
+                                Console.WriteLine($"  !!!!!!!!!!!!!!!!! TASK COMPLETED: {taskCompleted.Description.PadRight(30)} !!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
+
+                            }));
+                        }
+                        break;
+
                     case "collision":
                         break;
 

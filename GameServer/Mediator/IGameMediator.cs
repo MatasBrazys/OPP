@@ -16,5 +16,10 @@ namespace GameServer.Mediator
         // subscription API — participants call these to register/unregister themselves
         void RegisterParticipant(IMediatorParticipant participant);
         void RemoveParticipant(IMediatorParticipant participant);
+
+        // participant lookup API
+        bool TryGetParticipant<T>(out T participant) where T : class;
+        IEnumerable<T> GetParticipants<T>() where T : class;
+        bool HasParticipant<T>() where T : class;
     }
 }

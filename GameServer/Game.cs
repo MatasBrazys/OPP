@@ -88,6 +88,11 @@ namespace GameServer
             }
 
             // Add more enemies or objects as needed
+
+            // Initialize tasks
+            var plantTask = new GameShared.Types.Tasks.PlantTask(1, 3, "Wheat");
+            WorldFacade.AddTask(plantTask);
+            WorldFacade.DisplayActiveTasks();
         }
 
         private void GameLoop()
@@ -108,6 +113,9 @@ namespace GameServer
         {
             // Update plant growth
             var grownPlants = WorldFacade.UpdatePlantGrowth();
+
+            // Update tasks
+            WorldFacade.UpdateTasks();
 
             WorldFacade.UpdateWorld();
             Server.BroadcastState();

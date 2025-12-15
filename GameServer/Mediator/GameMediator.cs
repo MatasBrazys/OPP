@@ -188,6 +188,17 @@ namespace GameServer.Mediator
 
             _worldFacade.PlantSeed(msg.TileX, msg.TileY, msg.PlantType);
 
+            // Notify tasks about the planting
+            var activeTasks = _worldFacade.GetActiveTasks();
+            foreach (var task in activeTasks)
+            {
+                if (task is GameShared.Types.Tasks.PlantTask plantTask)
+                {
+                    plantTask.OnPlantSeed();
+                    _worldFacade.UpdateTasks();
+                }
+            }
+
             var tileUpdate = new TileUpdateMessage
             {
                 X = msg.TileX,
