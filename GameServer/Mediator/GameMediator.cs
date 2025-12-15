@@ -199,6 +199,60 @@ namespace GameServer.Mediator
             Console.WriteLine($"[PLANT] Successfully planted {msg.PlantType} at ({msg.TileX}, {msg.TileY})");
         }
 
+        public void HandleHarvestAction(HarvestActionMessage msg)
+        {
+            Console.WriteLine($"[HARVEST] Received harvest action from player {msg.PlayerId} at ({msg.TileX}, {msg.TileY})");
+
+            var (width, height) = _worldFacade.GetMapSize();
+
+            if (msg.TileX < 0 || msg.TileY < 0 ||
+                msg.TileX >= width ||
+                msg.TileY >= height)
+            {
+                Console.WriteLine($"[HARVEST] Invalid tile position: ({msg.TileX}, {msg.TileY})");
+                return;
+            }
+
+            // Debug: Show all plants currently in the world
+            var allPlants = _worldFacade.GetAllPlants();
+            Console.WriteLine($"[HARVEST] DEBUG: Total plants in world: {allPlants.Count}");
+            foreach (var p in allPlants)
+            {
+                Console.WriteLine($"[HARVEST] DEBUG: Plant at ({p.X}, {p.Y}) - Type: {p.PlantType}, Stage: {p.CurrentStage}, Matured: {p.IsMatured()}");
+            }
+
+            // Get the plant at this location
+            var plant = _worldFacade.GetPlantAtTile(msg.TileX, msg.TileY);
+            if (plant == null)
+            {
+                Console.WriteLine($"[HARVEST] No plant found at ({msg.TileX}, {msg.TileY})");
+                return;
+            }
+
+            Console.WriteLine($"[HARVEST] ? Found plant: {plant.PlantType} at ({plant.X}, {plant.Y}), Stage: {plant.CurrentStage}");
+
+            // Check if plant is mature (ready to harvest)
+            if (!plant.IsMatured())
+            {
+                Console.WriteLine($"[HARVEST] ? Plant at ({msg.TileX}, {msg.TileY}) is not ready to harvest. Stage: {plant.CurrentStage}/{plant.GetStages().Count - 1}");
+                return;
+            }
+
+            // Harvest the plant
+            _worldFacade.HarvestPlant(plant);
+
+            // Notify all clients about the tile change
+            var tileUpdate = new TileUpdateMessage
+            {
+                X = msg.TileX,
+                Y = msg.TileY,
+                TileType = "Grass"
+            };
+
+            _notifier.BroadcastToAll(tileUpdate);
+            Console.WriteLine($"[HARVEST] ? Successfully harvested {plant.PlantType} at ({msg.TileX}, {msg.TileY})");
+        }
+
         public void UndoLastMove(int playerId)
         {
             Stack<IPlayerMemento>? stack;

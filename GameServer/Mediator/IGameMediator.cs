@@ -9,6 +9,7 @@ namespace GameServer.Mediator
         void HandleInput(int playerId, InputMessage input);
         void HandleAttack(AttackMessage attack);
         void HandlePlantAction(PlantActionMessage action);
+        void HandleHarvestAction(HarvestActionMessage action);
         void UndoLastMove(int playerId);
         bool IsTileReplacedWithGrass(int tileX, int tileY);
 

@@ -413,6 +413,12 @@ namespace GameClient
             {
                 HandlePlantingAction();
             }
+
+            // ===== HARVESTING SYSTEM =====
+            if (e.KeyCode == Keys.H)
+            {
+                HandleHarvestAction();
+            }
         }
 
         /// <summary>
@@ -471,6 +477,63 @@ namespace GameClient
             var json = System.Text.Json.JsonSerializer.Serialize(plantMessage);
             _connection.SendRaw(json);
             Console.WriteLine($"[PLANT] Sent plant request at ({tileX}, {tileY})");
+        }
+
+        /// <summary>
+        /// Handle harvesting action when player presses "H"
+        /// Gets player tile position and attempts to harvest there
+        /// </summary>
+        private void HandleHarvestAction()
+        {
+            var player = _entityManager.GetPlayerRenderer(_myId);
+            if (player == null)
+            {
+                Console.WriteLine("[HARVEST] No player found");
+                return;
+            }
+
+            // Get player position in pixels
+            var (px, py) = player.Position;
+            
+            // Convert to tile coordinates
+            int tileX = (int)(px / TileSize);
+            int tileY = (int)(py / TileSize);
+
+            Console.WriteLine($"[HARVEST] DEBUG: Player at pixel ({px}, {py}) -> tile ({tileX}, {tileY})");
+
+            // Validate tile coordinates
+            if (tileX < 0 || tileY < 0 || tileX >= _map.Width || tileY >= _map.Height)
+            {
+                Console.WriteLine($"[HARVEST] Invalid tile position: ({tileX}, {tileY})");
+                return;
+            }
+
+            // Get the tile
+            var tile = _map.GetTile(tileX, tileY);
+            if (tile == null)
+            {
+                Console.WriteLine($"[HARVEST] No tile at ({tileX}, {tileY})");
+                return;
+            }
+
+            // Check if there's a harvestable plant at this location
+            if (tile.TileType != "Wheat" && tile.TileType != "WheatPlant")
+            {
+                Console.WriteLine($"[HARVEST] No harvestable plant at ({tileX}, {tileY}), found: {tile.TileType}");
+                return;
+            }
+
+            // Send harvest action message to server
+            var harvestMessage = new HarvestActionMessage
+            {
+                PlayerId = _myId,
+                TileX = tileX,
+                TileY = tileY
+            };
+
+            var json = System.Text.Json.JsonSerializer.Serialize(harvestMessage);
+            _connection.SendRaw(json);
+            Console.WriteLine($"[HARVEST] Sent harvest request at ({tileX}, {tileY})");
         }
 
         protected override void Dispose(bool disposing)

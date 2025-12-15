@@ -239,6 +239,14 @@ namespace GameServer
                             }
                             break;
 
+                        case "harvest_action":
+                            var harvestAction = JsonSerializer.Deserialize<HarvestActionMessage>(line);
+                            if (harvestAction != null)
+                            {
+                                _mediator?.HandleHarvestAction(harvestAction);
+                            }
+                            break;
+
                         default:
                             SendMessage(client, new ErrorMessage { Code = "bad_message", Detail = $"unknown type: {type}" });
                             break;
