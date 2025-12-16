@@ -27,6 +27,8 @@ namespace GameServer.Facades
         // Event for notifying about plant updates
         public event Action<Plant, string>? OnPlantGrew;
 
+        public TaskManager TaskManager => _taskManager;
+
         public GameWorldFacade(World world, IPlayerFactory playerFactory, IEnemyFactory enemyFactory)
         {
             _world = world;

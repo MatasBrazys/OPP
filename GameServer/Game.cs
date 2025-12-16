@@ -1,11 +1,13 @@
 ﻿// ./GameServer/Game.cs
 using GameServer.Facades;
 using GameServer.Factories;
+using GameShared.Messages;
+using GameShared.Strategies;
 using GameShared.Types.Map;
 using GameShared.Types.Players;
-using GameShared.Strategies;
-using GameShared.Messages;
+using GameShared.Types.Tasks.Interpreter;
 using System.Threading;
+using GameShared.Types.Tasks.Interpreter;
 
 
 namespace GameServer
@@ -15,6 +17,8 @@ namespace GameServer
     {
         private static readonly Lazy<Game> _instance = new(() => new Game());
         public static Game Instance => _instance.Value;
+        private TaskCommandInterpreter? _taskInterpreter;
+        private Thread? _interpreterThread;
 
         // Demo toggles (for lecture). Set to false to start with an empty world.
         private const bool SeedDemoEnemies = true;
@@ -45,6 +49,15 @@ namespace GameServer
         {
             Console.WriteLine("Game.Start: calling InitializeWorld");
             InitializeWorld();
+
+            _taskInterpreter = new TaskCommandInterpreter(WorldFacade.TaskManager);
+
+            _interpreterThread = new Thread(() =>
+            {
+                _taskInterpreter.RunInteractiveMode();
+            })
+            { IsBackground = true };
+            _interpreterThread.Start();
 
             // Wire mediator before server starts accepting clients
             Server.InitializeMediator(WorldFacade);
