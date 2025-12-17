@@ -186,7 +186,18 @@ namespace GameServer.Mediator
                 return;
             }
 
-            _worldFacade.PlantSeed(msg.TileX, msg.TileY, msg.PlantType);
+            var planted = _worldFacade.PlantSeed(msg.TileX, msg.TileY, msg.PlantType);
+
+            // Inform clients about the newly planted wheat for tracking
+            var plantedMessage = new PlantPlantedMessage
+            {
+                PlantId = planted.Id,
+                X = msg.TileX,
+                Y = msg.TileY,
+                PlantType = msg.PlantType,
+                InitialTileType = "WheatPlant"
+            };
+            _notifier.BroadcastToAll(plantedMessage);
 
             // Notify tasks about the planting
             var activeTasks = _worldFacade.GetActiveTasks();
@@ -251,6 +262,16 @@ namespace GameServer.Mediator
 
             // Harvest the plant
             _worldFacade.HarvestPlant(plant);
+
+            // Notify clients about removal for list tracking
+            var harvestedMsg = new PlantHarvestedMessage
+            {
+                PlantId = plant.Id,
+                X = msg.TileX,
+                Y = msg.TileY,
+                PlantType = plant.PlantType
+            };
+            _notifier.BroadcastToAll(harvestedMsg);
 
             // Notify all clients about the tile change
             var tileUpdate = new TileUpdateMessage

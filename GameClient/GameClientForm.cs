@@ -61,6 +61,9 @@ namespace GameClient
         private CancellationTokenSource? _autoHarvestCts;
         private bool _autoHarvestActive = false;
 
+        // Track all wheat plants known to the client
+        private readonly Dictionary<int, AutoHarvestTarget> _knownWheat = new();
+
         public GameClientForm()
         {
             InitializeComponentMinimal();
@@ -139,12 +142,35 @@ namespace GameClient
                             BeginInvoke((Action)(() => UpdateTile(plantUpdate.X, plantUpdate.Y, plantUpdate.TileType)));
                         break;
 
+                    case "plant_planted":
+                        var planted = JsonSerializer.Deserialize<PlantPlantedMessage>(raw);
+                        if (planted != null)
+                        {
+                            var target = new AutoHarvestTarget
+                            {
+                                X = planted.X,
+                                Y = planted.Y,
+                                PlantType = planted.PlantType
+                            };
+                            _knownWheat[planted.PlantId] = target;
+                        }
+                        break;
+
+                    case "plant_harvested":
+                        var harvested = JsonSerializer.Deserialize<PlantHarvestedMessage>(raw);
+                        if (harvested != null)
+                        {
+                            _knownWheat.Remove(harvested.PlantId);
+                        }
+                        break;
+
                     case "map_state":
                         var mapState = JsonSerializer.Deserialize<MapStateMessage>(raw);
                         if (mapState != null)
                         {
                             BeginInvoke((Action)(() =>
                             {
+                                _knownWheat.Clear();
                                 _map = new Map();
                                 _tileManager.Clear();
                                 _map.LoadFromDimensions(mapState.Width, mapState.Height);
@@ -279,7 +305,8 @@ namespace GameClient
                     currentX = (int)pos.X;
                     currentY = (int)pos.Y;
                 }
-                if (dx != 0 || dy != 0)
+                // Suppress manual movement while auto-harvest is active
+                if (!_autoHarvestActive && (dx != 0 || dy != 0))
                 {
                     var walkCommand = new WalkCommand(_connection, _myId, dx, dy, currentX, currentY);
                     _commandInvoker.AddCommand(walkCommand);
@@ -601,6 +628,7 @@ namespace GameClient
                 Console.WriteLine("[AUTO] No mature plants to harvest");
                 _autoHarvestCts?.Dispose();
                 _autoHarvestCts = null;
+                _autoHarvestActive = false;
                 return;
             }
 
@@ -647,10 +675,19 @@ namespace GameClient
                         int targetPx = t.X * TileSize + TileSize / 2;
                         int targetPy = t.Y * TileSize + TileSize / 2;
 
-                        // Move until within threshold of tile center
+                        // Move until within threshold of tile center OR player's tile matches target tile
+                        int noProgressCount = 0;
+                        int prevCx = int.MinValue, prevCy = int.MinValue;
+                        int prevDistSq = int.MaxValue;
                         while (!token.IsCancellationRequested)
                         {
                             var (cx, cy) = GetPlayerPos();
+                            int curTileX = cx / TileSize;
+                            int curTileY = cy / TileSize;
+                            if (curTileX == t.X && curTileY == t.Y)
+                            {
+                                break; // arrived at target tile
+                            }
                             int dx = targetPx - cx;
                             int dy = targetPy - cy;
                             int distSq = dx * dx + dy * dy;
@@ -666,10 +703,41 @@ namespace GameClient
                             var inputJson = System.Text.Json.JsonSerializer.Serialize(input);
                             _connection.SendRaw(inputJson);
 
+                            // Detect lack of progress (blocked path) to avoid infinite drift
+                            if (cx == prevCx && cy == prevCy)
+                            {
+                                noProgressCount++;
+                            }
+                            else
+                            {
+                                prevCx = cx;
+                                prevCy = cy;
+                            }
+
+                            if (distSq >= prevDistSq - 4) // allow small jitter tolerance
+                            {
+                                noProgressCount++;
+                            }
+                            else
+                            {
+                                prevDistSq = distSq;
+                            }
+
+                            if (noProgressCount >= 20)
+                            {
+                                Console.WriteLine("[AUTO] Movement appears blocked; skipping this target");
+                                break;
+                            }
+
                             await Task.Delay(80, token);
                         }
 
                         if (token.IsCancellationRequested) break;
+
+                        // Brief stop before harvesting to end any residual movement
+                        var stopBefore = new InputMessage { Dx = 0, Dy = 0 };
+                        var stopBeforeJson = System.Text.Json.JsonSerializer.Serialize(stopBefore);
+                        _connection.SendRaw(stopBeforeJson);
 
                         var harvest = new HarvestActionMessage { PlayerId = _myId, TileX = t.X, TileY = t.Y };
                         var harvestJson = System.Text.Json.JsonSerializer.Serialize(harvest);
@@ -677,6 +745,11 @@ namespace GameClient
                         Console.WriteLine($"[AUTO] Sent harvest for ({t.X}, {t.Y})");
 
                         await Task.Delay(250, token);
+
+                        // Ensure we stop before moving to the next target
+                        var stopBetween = new InputMessage { Dx = 0, Dy = 0 };
+                        var stopBetweenJson = System.Text.Json.JsonSerializer.Serialize(stopBetween);
+                        _connection.SendRaw(stopBetweenJson);
 
                         lastX = t.X;
                         lastY = t.Y;
@@ -697,6 +770,8 @@ namespace GameClient
                     _autoHarvestCts?.Dispose();
                     _autoHarvestCts = null;
                     _autoHarvestActive = false;
+                    // Prefer keyboard after auto to avoid controller drift
+                    try { _inputManager.ForceKeyboardAdapter(); } catch {}
                     // Force a repaint so sprites/tiles settle after the sequence
                     BeginInvoke((Action)(Invalidate));
                     Console.WriteLine("[AUTO] Auto-harvest routine finished");

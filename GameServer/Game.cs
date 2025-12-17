@@ -22,7 +22,7 @@ namespace GameServer
 
         // Demo toggles (for lecture). Set to false to start with an empty world.
         private const bool SeedDemoEnemies = true;
-        private const bool SeedDemoPlants = true;
+        private const bool SeedDemoPlants = false; // start with no plants on load
         public Server Server { get; private set; }
         public World World { get; private set; }
         public IPlayerFactory PlayerFactory { get; private set; }

@@ -19,6 +19,7 @@ namespace GameServer.Facades
         private readonly IPlayerFactory _playerFactory;
         private readonly IEnemyFactory _enemyFactory;
         private readonly PlantCollection _plants;
+        private readonly List<Plant> _wheatPlants = new();
         private PlantIterator? _plantIterator;
         private readonly TaskManager _taskManager;
 
@@ -125,6 +126,12 @@ namespace GameServer.Facades
             // Add to collection
             _plants.Add(newPlant);
 
+            // Track wheat plants in a dedicated list
+            if (string.Equals(newPlant.PlantType, "wheat", StringComparison.OrdinalIgnoreCase))
+            {
+                _wheatPlants.Add(newPlant);
+            }
+
             // Update the map tile to show the plant's initial state
             var currentTile = _world.Map.GetTile(tileX, tileY);
             string initialTileType = newPlant.GetCurrentTileType();
@@ -207,6 +214,7 @@ namespace GameServer.Facades
             if (plant != null)
             {
                 _plants.Remove(plant);
+                _wheatPlants.RemoveAll(p => p.Id == plant.Id);
                 // Replace plant tile with grass
                 _world.Map.SetTile(plant.X, plant.Y, new GrassTile(plant.X, plant.Y));
                 Console.WriteLine($"Harvested plant at ({plant.X}, {plant.Y})");
@@ -230,6 +238,11 @@ namespace GameServer.Facades
         public List<Plant> GetAllPlants()
         {
             return _plants.GetIterator().GetAllPlants();
+        }
+
+        public List<Plant> GetAllWheatPlants()
+        {
+            return _wheatPlants.ToList();
         }
 
         /// <summary>

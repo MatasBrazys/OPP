@@ -29,4 +29,17 @@ namespace GameShared.Messages
         public string PlantType { get; set; } = string.Empty;
         public string InitialTileType { get; set; } = string.Empty;
     }
+
+    /// <summary>
+    /// Message sent to clients when a plant is harvested and should be removed from client-side lists.
+    /// </summary>
+    public class PlantHarvestedMessage : GameMessage
+    {
+        public override string Type => "plant_harvested";
+
+        public int PlantId { get; set; }
+        public int X { get; set; }
+        public int Y { get; set; }
+        public string PlantType { get; set; } = string.Empty;
+    }
 }

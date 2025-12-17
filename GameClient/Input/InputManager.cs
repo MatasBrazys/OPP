@@ -41,6 +41,14 @@ namespace GameClient.Input.Adapters
             } while (!_activeAdapter.IsConnected && _activeIndex != 0);
         }
 
+        // Explicitly switch back to keyboard/mouse (adapter at index 0)
+        public void ForceKeyboardAdapter()
+        {
+            if (_adapters.Count == 0) return;
+            _activeIndex = 0;
+            _activeAdapter = _adapters[0];
+        }
+
         private void DetectActiveInput()
         {
             foreach (var adapter in _adapters)
