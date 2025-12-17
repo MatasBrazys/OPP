@@ -32,7 +32,7 @@ namespace GameClient.Rendering
         private string _currentDisplayPlantType = string.Empty;
         private DateTime _collectionTextShowUntil = DateTime.MinValue;
 
-        public PlayerRenderer(int id, string role, int startX, int startY, Image sprite, 
+        public PlayerRenderer(int id, string role, int startX, int startY, Image sprite,
                             bool isLocalPlayer, Color labelColor, Color localPlayerRingColor,
                             IRenderer? renderer = null)
         {
@@ -46,7 +46,7 @@ namespace GameClient.Rendering
             _labelColor = labelColor;
             _localPlayerRingColor = localPlayerRingColor;
             _renderer = renderer ?? new StandardRenderer();
-            
+
             // ✨ Initialize animation controller
             _animController = new WalkAnimationController();
         }
@@ -124,7 +124,7 @@ namespace GameClient.Rendering
             // ✨ Get animated sprite
             string animatedSpriteName = _animController.GetCurrentSpriteName(Role);
             Image currentSprite = SpriteRegistry.GetSprite(animatedSpriteName);
-            
+
             // Fallback to static sprite if animation not found
             if (currentSprite == null || currentSprite.Width == GameConstants.TILE_SIZE)
             {
@@ -132,7 +132,7 @@ namespace GameClient.Rendering
             }
 
             int playerSize = GameConstants.PLAYER_SIZE;
-            
+
             // Draw animated sprite
             _renderer.DrawSprite(g, currentSprite, drawX, drawY, playerSize, playerSize);
 
