@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using GameShared.Types.Map;
+using GameShared.Interfaces;
 
 namespace GameShared.Types.GameObjects
 {
@@ -114,6 +115,16 @@ namespace GameShared.Types.GameObjects
         public bool IsMatured()
         {
             return CurrentStage >= _stages.Count - 1;
+        }
+
+        /// <summary>
+        /// Accept method for the Visitor pattern.
+        /// Override in derived classes to call the appropriate visitor method.
+        /// </summary>
+        public virtual int Accept(IPlantVisitor visitor)
+        {
+            // Base implementation returns 0
+            return 0;
         }
 
         public override string ToString()

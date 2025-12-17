@@ -17,45 +17,45 @@ namespace GameClient.Managers
             long memoryBefore = GC.GetTotalMemory(true);
 
             // Load tiles using flyweight
-            SpriteRegistry.Register("Grass", 
+            SpriteRegistry.Register("Grass",
                 SpriteLoader.LoadSprite("../assets/grass.png").Image);
-            SpriteRegistry.Register("Tree", 
+            SpriteRegistry.Register("Tree",
                 SpriteLoader.LoadSprite("../assets/tree.png").Image);
-            SpriteRegistry.Register("House", 
+            SpriteRegistry.Register("House",
                 SpriteLoader.LoadSprite("../assets/house.png").Image);
-            SpriteRegistry.Register("Apple", 
+            SpriteRegistry.Register("Apple",
                 SpriteLoader.LoadSprite("../assets/apple.png").Image);
-            SpriteRegistry.Register("Fish", 
+            SpriteRegistry.Register("Fish",
                 SpriteLoader.LoadSprite("../assets/fish.png").Image);
-            SpriteRegistry.Register("Water", 
+            SpriteRegistry.Register("Water",
                 SpriteLoader.LoadSprite("../assets/water.png").Image);
-            SpriteRegistry.Register("Sand", 
+            SpriteRegistry.Register("Sand",
                 SpriteLoader.LoadSprite("../assets/sand.png").Image);
-            SpriteRegistry.Register("Cherry", 
+            SpriteRegistry.Register("Cherry",
                 SpriteLoader.LoadSprite("../assets/cherry.jpg").Image);
-            SpriteRegistry.Register("Wheat", 
+            SpriteRegistry.Register("Wheat",
                 SpriteLoader.LoadSprite("../assets/Wheat.png").Image);
-            SpriteRegistry.Register("WheatPlant", 
+            SpriteRegistry.Register("WheatPlant",
                 SpriteLoader.LoadSprite("../assets/WheatPlant.png").Image);
-            SpriteRegistry.Register("Carrot", 
+            SpriteRegistry.Register("Carrot",
                 SpriteLoader.LoadSprite("../assets/Carrots.png").Image);
-            SpriteRegistry.Register("CarrotPlant", 
+            SpriteRegistry.Register("CarrotPlant",
                 SpriteLoader.LoadSprite("../assets/PlantedCarrots.png").Image);
-            SpriteRegistry.Register("Potato", 
+            SpriteRegistry.Register("Potato",
                 SpriteLoader.LoadSprite("../assets/Potatos.png").Image);
-            SpriteRegistry.Register("PotatoPlant", 
+            SpriteRegistry.Register("PotatoPlant",
                 SpriteLoader.LoadSprite("../assets/PlantedPotatos.png").Image);
 
             // Load players
-            SpriteRegistry.Register("Mage", 
+            SpriteRegistry.Register("Mage",
                 SpriteLoader.LoadSprite("../assets/mage.png").Image);
-            SpriteRegistry.Register("Hunter", 
+            SpriteRegistry.Register("Hunter",
                 SpriteLoader.LoadSprite("../assets/hunter.png").Image);
-            SpriteRegistry.Register("Defender", 
+            SpriteRegistry.Register("Defender",
                 SpriteLoader.LoadSprite("../assets/defender.png").Image);
 
             // Load enemies
-            SpriteRegistry.Register("Slime", 
+            SpriteRegistry.Register("Slime",
                 SpriteLoader.LoadSprite("../assets/slime.png").Image);
 
             stopwatch.Stop();

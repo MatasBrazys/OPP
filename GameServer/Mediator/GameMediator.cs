@@ -10,6 +10,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using GameServer.Facades;
+using GameShared.Interfaces;
 
 namespace GameServer.Mediator
 {
@@ -260,8 +261,47 @@ namespace GameServer.Mediator
                 return;
             }
 
+            // Get the player
+            var player = _worldFacade.GetPlayer(msg.PlayerId);
+            if (player == null)
+            {
+                Console.WriteLine($"[HARVEST] ? Player {msg.PlayerId} not found");
+                return;
+            }
+
+            // Use Visitor Pattern to determine collection amount based on player role
+            IPlantVisitor? visitor = null;
+            if (player is Mage mage)
+            {
+                visitor = mage.GetPlantVisitor();
+            }
+            else if (player is Hunter hunter)
+            {
+                visitor = hunter.GetPlantVisitor();
+            }
+            else if (player is Defender defender)
+            {
+                visitor = defender.GetPlantVisitor();
+            }
+
+            int collectedAmount = 0;
+            if (visitor != null)
+            {
+                collectedAmount = plant.Accept(visitor);
+                Console.WriteLine($"[HARVEST] ? {player.RoleType} collected {collectedAmount} kg of {plant.PlantType}");
+            }
+
             // Harvest the plant
             _worldFacade.HarvestPlant(plant);
+
+            // Send collection notification to clients
+            var collectionMsg = new PlantCollectionMessage
+            {
+                PlayerId = msg.PlayerId,
+                Amount = collectedAmount,
+                PlantType = plant.PlantType
+            };
+            _notifier.BroadcastToAll(collectionMsg);
 
             // Notify clients about removal for list tracking
             var harvestedMsg = new PlantHarvestedMessage

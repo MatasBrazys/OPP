@@ -27,6 +27,11 @@ namespace GameClient.Rendering
 
         private IRenderer _renderer;
 
+        // Collection text display with accumulation
+        private Dictionary<string, int> _collectedAmounts = new Dictionary<string, int>();
+        private string _currentDisplayPlantType = string.Empty;
+        private DateTime _collectionTextShowUntil = DateTime.MinValue;
+
         public PlayerRenderer(int id, string role, int startX, int startY, Image sprite, 
                             bool isLocalPlayer, Color labelColor, Color localPlayerRingColor,
                             IRenderer? renderer = null)
@@ -44,6 +49,26 @@ namespace GameClient.Rendering
             
             // ✨ Initialize animation controller
             _animController = new WalkAnimationController();
+        }
+
+        /// <summary>
+        /// Show collection text above the player for a specified duration.
+        /// Accumulates amounts for the same plant type.
+        /// </summary>
+        public void ShowCollectionText(int amount, string plantType, double durationSeconds = 2.5)
+        {
+            // Add to accumulated amount for this plant type
+            if (_collectedAmounts.ContainsKey(plantType))
+            {
+                _collectedAmounts[plantType] += amount;
+            }
+            else
+            {
+                _collectedAmounts[plantType] = amount;
+            }
+
+            _currentDisplayPlantType = plantType;
+            _collectionTextShowUntil = DateTime.UtcNow.AddSeconds(durationSeconds);
         }
 
         public void SetRenderer(IRenderer renderer)
@@ -115,6 +140,17 @@ namespace GameClient.Rendering
             string label = $"{Role} (ID:{Id})";
             using var font = new Font(SystemFonts.DefaultFont.FontFamily, 8, FontStyle.Bold);
             _renderer.DrawText(g, label, font, _labelColor, drawX, drawY - 16);
+
+            // Draw collection text if active (showing accumulated amount)
+            if (DateTime.UtcNow < _collectionTextShowUntil && !string.IsNullOrEmpty(_currentDisplayPlantType))
+            {
+                if (_collectedAmounts.TryGetValue(_currentDisplayPlantType, out int totalAmount))
+                {
+                    string collectionText = $"{totalAmount} kg {_currentDisplayPlantType}";
+                    using var collectionFont = new Font(SystemFonts.DefaultFont.FontFamily, 9, FontStyle.Bold);
+                    _renderer.DrawText(g, collectionText, collectionFont, Color.Black, drawX, drawY - 32);
+                }
+            }
 
             // Draw range indicator for local player
             if (_isLocalPlayer)

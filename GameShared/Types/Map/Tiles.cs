@@ -92,8 +92,8 @@ public class CherryTile : TileData
 {
     public int tileId = 7;
     public override string TileType => "Cherry";
-    public override bool Passable =>    true;
-    public CherryTile(int x, int y): base(x, y) { }
+    public override bool Passable => true;
+    public CherryTile(int x, int y) : base(x, y) { }
     public bool IsEaten { get; private set; }
     public void Eat()
     {
@@ -117,7 +117,7 @@ public class CherryTile : TileData
 
         return result;
     }
-   
+
 }
 public class WheatTile : TileData
 {

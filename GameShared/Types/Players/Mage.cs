@@ -1,6 +1,8 @@
 //./GameShared/Types/Players/Hunter.cs
 using System.Drawing;
 using GameShared.Strategies;
+using GameShared.Interfaces;
+using GameShared.Types.Players.Visitors;
 
 namespace GameShared.Types.Players
 {
@@ -15,6 +17,10 @@ namespace GameShared.Types.Players
             CopyBasePropertiesTo(clone);
             return clone;
         }
-      
+
+        public IPlantVisitor GetPlantVisitor()
+        {
+            return new MageVisitor();
+        }
     }
 }

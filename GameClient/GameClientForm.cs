@@ -174,6 +174,22 @@ namespace GameClient
                         }
                         break;
 
+                    case "plant_collection":
+                        var collection = JsonSerializer.Deserialize<PlantCollectionMessage>(raw);
+                        if (collection != null)
+                        {
+                            BeginInvoke((Action)(() =>
+                            {
+                                var playerRenderer = _entityManager.GetPlayerRenderer(collection.PlayerId);
+                                if (playerRenderer != null)
+                                {
+                                    playerRenderer.ShowCollectionText(collection.Amount, collection.PlantType);
+                                    Invalidate();
+                                }
+                            }));
+                        }
+                        break;
+
                     case "map_state":
                         var mapState = JsonSerializer.Deserialize<MapStateMessage>(raw);
                         if (mapState != null)
@@ -685,11 +701,11 @@ namespace GameClient
         private void HandleHarvestAllPlants()
         {
             // Composite: Group all typed lists together
-            var allLists = new[] 
-            { 
-                ("Wheat", _knownWheat), 
-                ("Carrot", _knownCarrots), 
-                ("Potato", _knownPotatoes) 
+            var allLists = new[]
+            {
+                ("Wheat", _knownWheat),
+                ("Carrot", _knownCarrots),
+                ("Potato", _knownPotatoes)
             };
 
             int totalCount = allLists.Sum(l => l.Item2.Count);
@@ -781,9 +797,9 @@ namespace GameClient
                         (int, int) pos = (0, 0);
                         this.Invoke((Action)(() =>
                             {
-                        var pr = _entityManager.GetPlayerRenderer(_myId);
-                        if (pr != null) pos = ((int)pr.Position.X, (int)pr.Position.Y);
-                    }));
+                                var pr = _entityManager.GetPlayerRenderer(_myId);
+                                if (pr != null) pos = ((int)pr.Position.X, (int)pr.Position.Y);
+                            }));
                         return pos;
                     }
 
@@ -900,7 +916,7 @@ namespace GameClient
                     _autoHarvestCts = null;
                     _autoHarvestActive = false;
                     // Prefer keyboard after auto to avoid controller drift
-                    try { _inputManager.ForceKeyboardAdapter(); } catch {}
+                    try { _inputManager.ForceKeyboardAdapter(); } catch { }
                     // Force a repaint so sprites/tiles settle after the sequence
                     BeginInvoke((Action)(Invalidate));
                     Console.WriteLine("[AUTO] Auto-harvest routine finished");

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using GameShared.Interfaces;
 
 namespace GameShared.Types.GameObjects
 {
@@ -25,6 +26,11 @@ namespace GameShared.Types.GameObjects
             stages.Add(1, (2000, "WheatPlant"));   // Sprout stage: 2 seconds
             stages.Add(2, (2500, "Wheat"));        // Growing stage: 2.5 seconds
             stages.Add(3, (0, "Wheat"));           // Mature stage: infinite
+        }
+
+        public override int Accept(IPlantVisitor visitor)
+        {
+            return visitor.VisitWheat(this);
         }
     }
 }
