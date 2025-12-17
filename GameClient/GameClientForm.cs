@@ -641,20 +641,20 @@ namespace GameClient
 
             var token = _autoHarvestCts.Token;
 
-                Task.Run(async () =>
+            Task.Run(async () =>
+            {
+                int lastX = -1, lastY = -1;
+                try
                 {
-                    int lastX = -1, lastY = -1;
-                    try
-                    {
                     // Helper to get player pixel position on UI thread
                     (int px, int py) GetPlayerPos()
                     {
                         (int, int) pos = (0, 0);
                         this.Invoke((Action)(() =>
-                        {
-                            var pr = _entityManager.GetPlayerRenderer(_myId);
-                            if (pr != null) pos = ((int)pr.Position.X, (int)pr.Position.Y);
-                        }));
+                            {
+                        var pr = _entityManager.GetPlayerRenderer(_myId);
+                        if (pr != null) pos = ((int)pr.Position.X, (int)pr.Position.Y);
+                    }));
                         return pos;
                     }
 
@@ -664,7 +664,7 @@ namespace GameClient
                     int startTileX = startPos.px / TileSize;
                     int startTileY = startPos.py / TileSize;
                     ordered.Sort((a, b) => Math.Abs(a.X - startTileX) + Math.Abs(a.Y - startTileY)
-                                         - (Math.Abs(b.X - startTileX) + Math.Abs(b.Y - startTileY)));
+                                             - (Math.Abs(b.X - startTileX) + Math.Abs(b.Y - startTileY)));
 
                     foreach (var t in ordered)
                     {

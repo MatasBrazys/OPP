@@ -285,37 +285,37 @@ namespace GameServer.Mediator
             Console.WriteLine($"[HARVEST] ? Successfully harvested {plant.PlantType} at ({msg.TileX}, {msg.TileY})");
         }
 
-            public void HandleAutoHarvest(AutoHarvestMessage msg)
+        public void HandleAutoHarvest(AutoHarvestMessage msg)
+        {
+            Console.WriteLine($"[AUTO-HARVEST] Building harvest plan for player {msg.PlayerId}");
+
+            var player = _worldFacade.GetPlayer(msg.PlayerId);
+            if (player == null)
             {
-                Console.WriteLine($"[AUTO-HARVEST] Building harvest plan for player {msg.PlayerId}");
-
-                var player = _worldFacade.GetPlayer(msg.PlayerId);
-                if (player == null)
-                {
-                    Console.WriteLine($"[AUTO-HARVEST] Player {msg.PlayerId} not found");
-                    return;
-                }
-
-                var maturePlants = _worldFacade.GetMaturePlants();
-
-                // Order targets by Manhattan distance from player position
-                var ordered = maturePlants
-                    .OrderBy(p => Math.Abs(p.X - player.X) + Math.Abs(p.Y - player.Y))
-                    .ToList();
-
-                var plan = new AutoHarvestPlanMessage
-                {
-                    Targets = ordered.Select(p => new AutoHarvestTarget
-                    {
-                        X = p.X,
-                        Y = p.Y,
-                        PlantType = p.PlantType
-                    }).ToList()
-                };
-
-                Console.WriteLine($"[AUTO-HARVEST] Plan has {plan.Targets.Count} targets (Composite/Iterator used to flatten plants)");
-                _notifier.SendToClient(msg.PlayerId, plan);
+                Console.WriteLine($"[AUTO-HARVEST] Player {msg.PlayerId} not found");
+                return;
             }
+
+            var maturePlants = _worldFacade.GetMaturePlants();
+
+            // Order targets by Manhattan distance from player position
+            var ordered = maturePlants
+                .OrderBy(p => Math.Abs(p.X - player.X) + Math.Abs(p.Y - player.Y))
+                .ToList();
+
+            var plan = new AutoHarvestPlanMessage
+            {
+                Targets = ordered.Select(p => new AutoHarvestTarget
+                {
+                    X = p.X,
+                    Y = p.Y,
+                    PlantType = p.PlantType
+                }).ToList()
+            };
+
+            Console.WriteLine($"[AUTO-HARVEST] Plan has {plan.Targets.Count} targets (Composite/Iterator used to flatten plants)");
+            _notifier.SendToClient(msg.PlayerId, plan);
+        }
 
         public void UndoLastMove(int playerId)
         {

@@ -7,7 +7,7 @@ namespace GameShared.Messages
     public class PlantUpdateMessage : GameMessage
     {
         public override string Type => "plant_update";
-        
+
         public int PlantId { get; set; }
         public int X { get; set; }
         public int Y { get; set; }
@@ -22,7 +22,7 @@ namespace GameShared.Messages
     public class PlantPlantedMessage : GameMessage
     {
         public override string Type => "plant_planted";
-        
+
         public int PlantId { get; set; }
         public int X { get; set; }
         public int Y { get; set; }
