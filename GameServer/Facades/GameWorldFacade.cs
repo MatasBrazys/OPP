@@ -20,6 +20,8 @@ namespace GameServer.Facades
         private readonly IEnemyFactory _enemyFactory;
         private readonly PlantCollection _plants;
         private readonly List<Plant> _wheatPlants = new();
+        private readonly List<Plant> _carrotPlants = new();
+        private readonly List<Plant> _potatoPlants = new();
         private PlantIterator? _plantIterator;
         private readonly TaskManager _taskManager;
 
@@ -120,16 +122,26 @@ namespace GameServer.Facades
             Plant newPlant = plantType.ToLower() switch
             {
                 "wheat" => new Wheat(0, tileX, tileY),
+                "carrot" => new Carrot(0, tileX, tileY),
+                "potato" => new Potato(0, tileX, tileY),
                 _ => new Plant(0, tileX, tileY, plantType)
             };
 
             // Add to collection
             _plants.Add(newPlant);
 
-            // Track wheat plants in a dedicated list
+            // Track plants in dedicated lists (demonstrates Composite pattern)
             if (string.Equals(newPlant.PlantType, "wheat", StringComparison.OrdinalIgnoreCase))
             {
                 _wheatPlants.Add(newPlant);
+            }
+            else if (string.Equals(newPlant.PlantType, "carrot", StringComparison.OrdinalIgnoreCase))
+            {
+                _carrotPlants.Add(newPlant);
+            }
+            else if (string.Equals(newPlant.PlantType, "potato", StringComparison.OrdinalIgnoreCase))
+            {
+                _potatoPlants.Add(newPlant);
             }
 
             // Update the map tile to show the plant's initial state
@@ -214,7 +226,10 @@ namespace GameServer.Facades
             if (plant != null)
             {
                 _plants.Remove(plant);
+                // Remove from typed lists (demonstrates Composite organization)
                 _wheatPlants.RemoveAll(p => p.Id == plant.Id);
+                _carrotPlants.RemoveAll(p => p.Id == plant.Id);
+                _potatoPlants.RemoveAll(p => p.Id == plant.Id);
                 // Replace plant tile with grass
                 _world.Map.SetTile(plant.X, plant.Y, new GrassTile(plant.X, plant.Y));
                 Console.WriteLine($"Harvested plant at ({plant.X}, {plant.Y})");
@@ -243,6 +258,29 @@ namespace GameServer.Facades
         public List<Plant> GetAllWheatPlants()
         {
             return _wheatPlants.ToList();
+        }
+
+        public List<Plant> GetAllCarrotPlants()
+        {
+            return _carrotPlants.ToList();
+        }
+
+        public List<Plant> GetAllPotatoPlants()
+        {
+            return _potatoPlants.ToList();
+        }
+
+        /// <summary>
+        /// Get all plants grouped by type - demonstrates Composite pattern with list of lists
+        /// </summary>
+        public Dictionary<string, List<Plant>> GetAllPlantsByType()
+        {
+            return new Dictionary<string, List<Plant>>
+            {
+                { "Wheat", _wheatPlants.ToList() },
+                { "Carrot", _carrotPlants.ToList() },
+                { "Potato", _potatoPlants.ToList() }
+            };
         }
 
         /// <summary>
@@ -282,14 +320,16 @@ namespace GameServer.Facades
         /// </summary>
         private void UpdatePlantTile(int tileX, int tileY, string tileType)
         {
-            TileData newTile;
-
-            if (tileType == "Wheat")
-                newTile = new WheatTile(tileX, tileY);
-            else if (tileType == "WheatPlant")
-                newTile = new WheatPlantTile(tileX, tileY);
-            else
-                newTile = new GrassTile(tileX, tileY);
+            TileData newTile = tileType switch
+            {
+                "Wheat" => new WheatTile(tileX, tileY),
+                "WheatPlant" => new WheatPlantTile(tileX, tileY),
+                "Carrot" => new CarrotTile(tileX, tileY),
+                "CarrotPlant" => new CarrotPlantTile(tileX, tileY),
+                "Potato" => new PotatoTile(tileX, tileY),
+                "PotatoPlant" => new PotatoPlantTile(tileX, tileY),
+                _ => new GrassTile(tileX, tileY)
+            };
 
             _world.Map.SetTile(tileX, tileY, newTile);
         }

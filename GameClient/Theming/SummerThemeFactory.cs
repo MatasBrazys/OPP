@@ -16,8 +16,12 @@ namespace GameClient.Theming
             ["Water"] = ThemeSpriteLoader.LoadTileSprite("../assets/water.png", Color.RoyalBlue),
             ["Sand"] = ThemeSpriteLoader.LoadTileSprite("../assets/sand.png", Color.Khaki),
             ["Cherry"] = ThemeSpriteLoader.LoadTileSprite("../assets/cherry.jpg", Color.IndianRed),
-            ["Wheat"] = ThemeSpriteLoader.LoadTileSprite("../assets/wheat.png", Color.Gold),
-            ["WheatPlant"] = ThemeSpriteLoader.LoadTileSprite("../assets/WheatPlant.png", Color.OliveDrab)
+            ["Wheat"] = ThemeSpriteLoader.LoadTileSprite("../assets/Wheat.png", Color.Gold),
+            ["WheatPlant"] = ThemeSpriteLoader.LoadTileSprite("../assets/WheatPlant.png", Color.OliveDrab),
+            ["Carrot"] = ThemeSpriteLoader.LoadTileSprite("../assets/Carrots.png", Color.Orange),
+            ["CarrotPlant"] = ThemeSpriteLoader.LoadTileSprite("../assets/PlantedCarrots.png", Color.OliveDrab),
+            ["Potato"] = ThemeSpriteLoader.LoadTileSprite("../assets/Potatos.png", Color.SaddleBrown),
+            ["PotatoPlant"] = ThemeSpriteLoader.LoadTileSprite("../assets/PlantedPotatos.png", Color.OliveDrab)
         };
 
         public IReadOnlyDictionary<string, Image> Sprites => _sprites;

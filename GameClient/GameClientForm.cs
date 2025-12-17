@@ -61,8 +61,10 @@ namespace GameClient
         private CancellationTokenSource? _autoHarvestCts;
         private bool _autoHarvestActive = false;
 
-        // Track all wheat plants known to the client
+        // Track all plants known to the client (demonstrates Composite pattern - typed collections)
         private readonly Dictionary<int, AutoHarvestTarget> _knownWheat = new();
+        private readonly Dictionary<int, AutoHarvestTarget> _knownCarrots = new();
+        private readonly Dictionary<int, AutoHarvestTarget> _knownPotatoes = new();
 
         public GameClientForm()
         {
@@ -152,7 +154,13 @@ namespace GameClient
                                 Y = planted.Y,
                                 PlantType = planted.PlantType
                             };
-                            _knownWheat[planted.PlantId] = target;
+                            // Add to appropriate typed list
+                            if (planted.PlantType.Equals("wheat", StringComparison.OrdinalIgnoreCase))
+                                _knownWheat[planted.PlantId] = target;
+                            else if (planted.PlantType.Equals("carrot", StringComparison.OrdinalIgnoreCase))
+                                _knownCarrots[planted.PlantId] = target;
+                            else if (planted.PlantType.Equals("potato", StringComparison.OrdinalIgnoreCase))
+                                _knownPotatoes[planted.PlantId] = target;
                         }
                         break;
 
@@ -161,6 +169,8 @@ namespace GameClient
                         if (harvested != null)
                         {
                             _knownWheat.Remove(harvested.PlantId);
+                            _knownCarrots.Remove(harvested.PlantId);
+                            _knownPotatoes.Remove(harvested.PlantId);
                         }
                         break;
 
@@ -171,6 +181,8 @@ namespace GameClient
                             BeginInvoke((Action)(() =>
                             {
                                 _knownWheat.Clear();
+                                _knownCarrots.Clear();
+                                _knownPotatoes.Clear();
                                 _map = new Map();
                                 _tileManager.Clear();
                                 _map.LoadFromDimensions(mapState.Width, mapState.Height);
@@ -272,6 +284,10 @@ namespace GameClient
                 "sand" => new SandTile(x, y),
                 "wheat" => new WheatTile(x, y),
                 "wheatplant" => new WheatPlantTile(x, y),
+                "carrot" => new CarrotTile(x, y),
+                "carrotplant" => new CarrotPlantTile(x, y),
+                "potato" => new PotatoTile(x, y),
+                "potatoplant" => new PotatoPlantTile(x, y),
                 _ => new GrassTile(x, y)
             };
 
@@ -465,13 +481,41 @@ namespace GameClient
             // ===== PLANTING SYSTEM =====
             if (e.KeyCode == Keys.I)
             {
-                HandlePlantingAction();
+                HandlePlantingAction("Wheat");
+            }
+            if (e.KeyCode == Keys.K)
+            {
+                HandlePlantingAction("Carrot");
+            }
+            if (e.KeyCode == Keys.L)
+            {
+                HandlePlantingAction("Potato");
             }
 
             // ===== HARVESTING SYSTEM =====
             if (e.KeyCode == Keys.H)
             {
                 HandleHarvestAction();
+            }
+
+            // ===== HARVEST ALL BY TYPE (demonstrates Iterator pattern) =====
+            if (e.KeyCode == Keys.D1)
+            {
+                HandleHarvestAllOfType("Wheat");
+            }
+            if (e.KeyCode == Keys.D2)
+            {
+                HandleHarvestAllOfType("Carrot");
+            }
+            if (e.KeyCode == Keys.D3)
+            {
+                HandleHarvestAllOfType("Potato");
+            }
+
+            // ===== HARVEST ALL PLANTS (demonstrates Composite + Iterator pattern) =====
+            if (e.KeyCode == Keys.D4)
+            {
+                HandleHarvestAllPlants();
             }
 
             // ===== AUTO-HARVEST (T key) =====
@@ -483,10 +527,10 @@ namespace GameClient
         }
 
         /// <summary>
-        /// Handle planting action when player presses "I"
+        /// Handle planting action when player presses I/K/L
         /// Gets player tile position and attempts to plant there
         /// </summary>
-        private void HandlePlantingAction()
+        private void HandlePlantingAction(string plantType)
         {
             var player = _entityManager.GetPlayerRenderer(_myId);
             if (player == null)
@@ -532,12 +576,12 @@ namespace GameClient
                 PlayerId = _myId,
                 TileX = tileX,
                 TileY = tileY,
-                PlantType = "Wheat"
+                PlantType = plantType
             };
 
             var json = System.Text.Json.JsonSerializer.Serialize(plantMessage);
             _connection.SendRaw(json);
-            Console.WriteLine($"[PLANT] Sent plant request at ({tileX}, {tileY})");
+            Console.WriteLine($"[PLANT] Sent {plantType} plant request at ({tileX}, {tileY})");
         }
 
         /// <summary>
@@ -578,7 +622,8 @@ namespace GameClient
             }
 
             // Check if there's a harvestable plant at this location
-            if (tile.TileType != "Wheat" && tile.TileType != "WheatPlant")
+            var harvestableTypes = new[] { "Wheat", "WheatPlant", "Carrot", "CarrotPlant", "Potato", "PotatoPlant" };
+            if (!harvestableTypes.Contains(tile.TileType))
             {
                 Console.WriteLine($"[HARVEST] No harvestable plant at ({tileX}, {tileY}), found: {tile.TileType}");
                 return;
@@ -595,6 +640,90 @@ namespace GameClient
             var json = System.Text.Json.JsonSerializer.Serialize(harvestMessage);
             _connection.SendRaw(json);
             Console.WriteLine($"[HARVEST] Sent harvest request at ({tileX}, {tileY})");
+        }
+
+        /// <summary>
+        /// Harvest all plants of a specified type (demonstrates Iterator pattern - iterating through typed list)
+        /// Player walks to each plant location with animation
+        /// </summary>
+        private void HandleHarvestAllOfType(string plantType)
+        {
+            var knownList = plantType switch
+            {
+                "Wheat" => _knownWheat,
+                "Carrot" => _knownCarrots,
+                "Potato" => _knownPotatoes,
+                _ => null
+            };
+
+            if (knownList == null || knownList.Count == 0)
+            {
+                Console.WriteLine($"[HARVEST ALL {plantType.ToUpper()}] No {plantType} plants to harvest");
+                return;
+            }
+
+            // Cancel any existing auto-harvest
+            if (_autoHarvestCts != null)
+            {
+                _autoHarvestCts.Cancel();
+                _autoHarvestCts.Dispose();
+            }
+
+            _autoHarvestCts = new CancellationTokenSource();
+            _autoHarvestActive = true;
+
+            var targets = knownList.Values.ToList();
+            Console.WriteLine($"[HARVEST ALL {plantType.ToUpper()}] Starting animated harvest of {targets.Count} {plantType} plants (Iterator pattern demonstration)");
+            StartAutoHarvestRoutine(targets);
+        }
+
+        /// <summary>
+        /// Harvest ALL plants from ALL typed lists (demonstrates COMPOSITE + ITERATOR pattern)
+        /// This shows how we can treat a collection of collections as a single unit
+        /// Player walks to each plant location with animation
+        /// </summary>
+        private void HandleHarvestAllPlants()
+        {
+            // Composite: Group all typed lists together
+            var allLists = new[] 
+            { 
+                ("Wheat", _knownWheat), 
+                ("Carrot", _knownCarrots), 
+                ("Potato", _knownPotatoes) 
+            };
+
+            int totalCount = allLists.Sum(l => l.Item2.Count);
+            if (totalCount == 0)
+            {
+                Console.WriteLine("[HARVEST ALL PLANTS] No plants to harvest");
+                return;
+            }
+
+            Console.WriteLine($"[HARVEST ALL PLANTS] 🌾 Starting Composite + Iterator pattern demonstration");
+            Console.WriteLine($"[HARVEST ALL PLANTS] Total plants across all types: {totalCount}");
+            Console.WriteLine($"[HARVEST ALL PLANTS] Iterating through composite of {allLists.Length} typed lists...\n");
+
+            // Cancel any existing auto-harvest
+            if (_autoHarvestCts != null)
+            {
+                _autoHarvestCts.Cancel();
+                _autoHarvestCts.Dispose();
+            }
+
+            _autoHarvestCts = new CancellationTokenSource();
+            _autoHarvestActive = true;
+
+            // Flatten all plants from all typed lists into single collection for animation
+            var allTargets = new List<AutoHarvestTarget>();
+            foreach (var (typeName, list) in allLists)
+            {
+                if (list.Count == 0) continue;
+                Console.WriteLine($"  📋 Added {list.Count} {typeName} plants to harvest queue");
+                allTargets.AddRange(list.Values);
+            }
+
+            Console.WriteLine($"\n[HARVEST ALL PLANTS] Walking to and harvesting all {allTargets.Count} plants...");
+            StartAutoHarvestRoutine(allTargets);
         }
 
         /// <summary>

@@ -188,14 +188,14 @@ namespace GameServer.Mediator
 
             var planted = _worldFacade.PlantSeed(msg.TileX, msg.TileY, msg.PlantType);
 
-            // Inform clients about the newly planted wheat for tracking
+            // Inform clients about the newly planted plant for tracking
             var plantedMessage = new PlantPlantedMessage
             {
                 PlantId = planted.Id,
                 X = msg.TileX,
                 Y = msg.TileY,
                 PlantType = msg.PlantType,
-                InitialTileType = "WheatPlant"
+                InitialTileType = planted.GetCurrentTileType()
             };
             _notifier.BroadcastToAll(plantedMessage);
 

@@ -134,3 +134,35 @@ public class WheatPlantTile : TileData
     public override bool Passable => true;
     public WheatPlantTile(int x, int y) : base(x, y) { }
 }
+
+public class CarrotTile : TileData
+{
+    public int tileId = 10;
+    public override string TileType => "Carrot";
+    public override bool Passable => true;
+    public CarrotTile(int x, int y) : base(x, y) { }
+}
+
+public class CarrotPlantTile : TileData
+{
+    public int tileId = 11;
+    public override string TileType => "CarrotPlant";
+    public override bool Passable => true;
+    public CarrotPlantTile(int x, int y) : base(x, y) { }
+}
+
+public class PotatoTile : TileData
+{
+    public int tileId = 12;
+    public override string TileType => "Potato";
+    public override bool Passable => true;
+    public PotatoTile(int x, int y) : base(x, y) { }
+}
+
+public class PotatoPlantTile : TileData
+{
+    public int tileId = 13;
+    public override string TileType => "PotatoPlant";
+    public override bool Passable => true;
+    public PotatoPlantTile(int x, int y) : base(x, y) { }
+}

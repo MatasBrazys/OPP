@@ -34,9 +34,17 @@ namespace GameClient.Managers
             SpriteRegistry.Register("Cherry", 
                 SpriteLoader.LoadSprite("../assets/cherry.jpg").Image);
             SpriteRegistry.Register("Wheat", 
-                SpriteLoader.LoadSprite("../assets/wheat.png").Image);
+                SpriteLoader.LoadSprite("../assets/Wheat.png").Image);
             SpriteRegistry.Register("WheatPlant", 
                 SpriteLoader.LoadSprite("../assets/WheatPlant.png").Image);
+            SpriteRegistry.Register("Carrot", 
+                SpriteLoader.LoadSprite("../assets/Carrots.png").Image);
+            SpriteRegistry.Register("CarrotPlant", 
+                SpriteLoader.LoadSprite("../assets/PlantedCarrots.png").Image);
+            SpriteRegistry.Register("Potato", 
+                SpriteLoader.LoadSprite("../assets/Potatos.png").Image);
+            SpriteRegistry.Register("PotatoPlant", 
+                SpriteLoader.LoadSprite("../assets/PlantedPotatos.png").Image);
 
             // Load players
             SpriteRegistry.Register("Mage", 
