@@ -15,6 +15,8 @@ using GameClient.Theming;
 using GameClient.Rendering.Bridge;
 using GameClient.Rendering.Flyweight;
 using GameClient.Animation;
+using GameClient.States;
+using GameShared.Types.Tasks;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Linq;
@@ -30,6 +32,16 @@ namespace GameClient
         private readonly AnimationManager _animManager;
         private readonly InputManager _inputManager;
         private readonly CommandInvoker _commandInvoker;
+        private PlayerStateManager? _stateManager;
+
+        // Random task generator for Working state
+        private static readonly Random _taskRandom = new();
+        private static readonly (string Name, float DurationMs)[] _availableTasks = new[]
+        {
+            ("Harvest 3 Wheat", 4000f),
+            ("Harvest 3 Carrot", 4000f),
+            ("Harvest 2 Potato", 3000f)
+        };
 
         private int _myId;
         private readonly System.Windows.Forms.Timer _gameTimer;
@@ -94,6 +106,9 @@ namespace GameClient
             _inputManager = new InputManager(this, ClientSize);
             _commandInvoker = new CommandInvoker();
 
+            // State Manager will be fully initialized after we have myId
+            // For now, create placeholder (will be re-initialized when myId is set)
+
             _gameTimer = new System.Windows.Forms.Timer { Interval = 16 };
             _gameTimer.Tick += GameLoop;
             _gameTimer.Start();
@@ -129,7 +144,11 @@ namespace GameClient
                 {
                     case "welcome":
                         var welcome = JsonSerializer.Deserialize<WelcomeMessage>(raw);
-                        if (welcome != null) _myId = welcome.Id;
+                        if (welcome != null)
+                        {
+                            _myId = welcome.Id;
+                            InitializeStateManager();
+                        }
                         break;
 
                     case "tile_update":
@@ -313,11 +332,57 @@ namespace GameClient
             MarkMapCacheDirty();
         }
 
+        /// <summary>
+        /// Initializes the State Manager after player ID is received from server.
+        /// </summary>
+        private void InitializeStateManager()
+        {
+            if (_stateManager != null) return; // Already initialized
+
+            // Create all states
+            var sleepState = new SleepState(null!);  // Will set manager reference after construction
+            var attackState = new AttackState(null!, _connection, _myId, _commandInvoker);
+            var workingState = new WorkingState(null!);
+            var activeState = new ActiveState(
+                null!,
+                _connection,
+                _myId,
+                _commandInvoker,
+                () => HandlePlantingAction("Wheat"),  // Default plant action
+                () => HandleHarvestAction()
+            );
+
+            // Create the state manager
+            _stateManager = new PlayerStateManager(activeState, attackState, sleepState, workingState);
+
+            // Now inject the state manager reference into each state via reflection
+            // (This is a workaround for the circular dependency)
+            SetStateManagerReference(activeState);
+            SetStateManagerReference(attackState);
+            SetStateManagerReference(sleepState);
+            SetStateManagerReference(workingState);
+
+            Console.WriteLine($"[STATE] State Manager initialized for player {_myId}");
+        }
+
+        /// <summary>
+        /// Helper to set the state manager reference via reflection (due to circular dependency).
+        /// </summary>
+        private void SetStateManagerReference(PlayerStateBase state)
+        {
+            var field = typeof(PlayerStateBase).GetField("_stateManager", 
+                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            field?.SetValue(state, _stateManager);
+        }
+
         private void GameLoop(object? sender, EventArgs e)
         {
             if (!_connection.IsConnected || _myId == 0) return;
 
             _inputManager.Update();
+
+            // Update current state (handles timeouts like attack duration, work completion)
+            _stateManager?.CurrentState?.Update();
 
             if ((DateTime.UtcNow - _lastInputSent).TotalMilliseconds >= InputRateMs)
             {
@@ -337,13 +402,29 @@ namespace GameClient
                     currentX = (int)pos.X;
                     currentY = (int)pos.Y;
                 }
-                // Suppress manual movement while auto-harvest is active
+
+                // Route movement through state system
                 if (!_autoHarvestActive && (dx != 0 || dy != 0))
                 {
-                    var walkCommand = new WalkCommand(_connection, _myId, dx, dy, currentX, currentY);
-                    _commandInvoker.AddCommand(walkCommand);
+                    int dxInt = (int)dx;
+                    int dyInt = (int)dy;
+                    
+                    // Check if state allows movement (Active and Working states allow movement)
+                    var currentStateName = _stateManager?.CurrentState?.StateName;
+                    if (currentStateName == "Active" || currentStateName == "Working")
+                    {
+                        _stateManager?.CurrentState?.HandleMovement(dxInt, dyInt);
+                        var walkCommand = new WalkCommand(_connection, _myId, dx, dy, currentX, currentY);
+                        _commandInvoker.AddCommand(walkCommand);
+                    }
+                    else
+                    {
+                        // State blocks movement - just notify
+                        _stateManager?.CurrentState?.HandleMovement(dxInt, dyInt);
+                    }
                 }
 
+                // Route attack through state system
                 bool attackPressed = _inputManager.IsAttackPressed();
                 if (attackPressed)
                 {
@@ -351,8 +432,21 @@ namespace GameClient
                     if (pr != null)
                     {
                         var aimPos = _inputManager.GetAimPosition();
-                        var attackCommand = new AttackCommand(_connection, _myId, aimPos.X, aimPos.Y, "slash");
-                        _commandInvoker.AddCommand(attackCommand);
+                        int aimX = (int)aimPos.X;
+                        int aimY = (int)aimPos.Y;
+                        
+                        // Check if state allows attack
+                        if (_stateManager?.CurrentState?.StateName == "Active")
+                        {
+                            _stateManager.CurrentState.HandleAttack(aimX, aimY);
+                            var attackCommand = new AttackCommand(_connection, _myId, aimPos.X, aimPos.Y, "slash");
+                            _commandInvoker.AddCommand(attackCommand);
+                        }
+                        else
+                        {
+                            // State blocks attack - just notify
+                            _stateManager?.CurrentState?.HandleAttack(aimX, aimY);
+                        }
                     }
                 }
 
@@ -494,24 +588,90 @@ namespace GameClient
                 SpriteCache.Instance.PrintReport();
             }
 
-            // ===== PLANTING SYSTEM =====
+            // ===== STATE SYSTEM: SLEEP TOGGLE (Z key without modifiers) =====
+            if (e.KeyCode == Keys.Z && !e.Control && !e.Shift)
+            {
+                _stateManager?.CurrentState?.HandleSleepToggle();
+            }
+
+            // ===== STATE SYSTEM: TASK ASSIGNMENT (T key) =====
+            if (e.KeyCode == Keys.T && !e.Control)
+            {
+                if (_stateManager?.CurrentState?.StateName == "Active")
+                {
+                    // Create a PlantTask with requirement (harvest 3 plants)
+                    var taskId = _taskRandom.Next(1000);
+                    var requiredCount = _taskRandom.Next(2, 5); // 2-4 harvests required
+                    var plantTypes = new[] { "Wheat", "Carrot", "Potato" };
+                    var plantType = plantTypes[_taskRandom.Next(plantTypes.Length)];
+                    
+                    var task = new PlantTask(taskId, requiredCount, plantType);
+                    
+                    var workingState = _stateManager.GetWorkingState();
+                    workingState.AssignTask(task);
+                    _stateManager.CurrentState.HandleTaskAssignment();
+                    
+                    Console.WriteLine($"[TASK] Assigned: {task.Description}");
+                }
+                else
+                {
+                    Console.WriteLine($"[STATE] Cannot start work - current state: {_stateManager?.CurrentState?.StateName}");
+                }
+            }
+
+            // ===== STATE SYSTEM: CANCEL WORK (Q key) =====
+            if (e.KeyCode == Keys.Q && !e.Control)
+            {
+                if (_stateManager?.CurrentState?.StateName == "Working")
+                {
+                    Console.WriteLine($"[TASK] Cancelling current task...");
+                    _stateManager.CurrentState.HandleTaskCompletion(); // This will transition back to Active
+                }
+            }
+
+            // ===== PLANTING SYSTEM (routed through state) =====
             if (e.KeyCode == Keys.I)
             {
-                HandlePlantingAction("Wheat");
+                var state = _stateManager?.CurrentState?.StateName;
+                if (state == "Active" || state == "Working")
+                    HandlePlantingAction("Wheat");
+                else
+                    _stateManager?.CurrentState?.HandlePlant();
             }
             if (e.KeyCode == Keys.K)
             {
-                HandlePlantingAction("Carrot");
+                var state = _stateManager?.CurrentState?.StateName;
+                if (state == "Active" || state == "Working")
+                    HandlePlantingAction("Carrot");
+                else
+                    _stateManager?.CurrentState?.HandlePlant();
             }
             if (e.KeyCode == Keys.L)
             {
-                HandlePlantingAction("Potato");
+                var state = _stateManager?.CurrentState?.StateName;
+                if (state == "Active" || state == "Working")
+                    HandlePlantingAction("Potato");
+                else
+                    _stateManager?.CurrentState?.HandlePlant();
             }
 
-            // ===== HARVESTING SYSTEM =====
+            // ===== HARVESTING SYSTEM (routed through state) =====
             if (e.KeyCode == Keys.H)
             {
-                HandleHarvestAction();
+                var state = _stateManager?.CurrentState?.StateName;
+                if (state == "Active" || state == "Working")
+                {
+                    HandleHarvestAction();
+                    // If in Working state, update task progress
+                    if (state == "Working")
+                    {
+                        _stateManager?.GetWorkingState().OnHarvestPerformed();
+                    }
+                }
+                else
+                {
+                    _stateManager?.CurrentState?.HandleHarvest();
+                }
             }
 
             // ===== HARVEST ALL BY TYPE (demonstrates Iterator pattern) =====
@@ -532,13 +692,6 @@ namespace GameClient
             if (e.KeyCode == Keys.D4)
             {
                 HandleHarvestAllPlants();
-            }
-
-            // ===== AUTO-HARVEST (T key) =====
-            if (e.KeyCode == Keys.T)
-            {
-                // Toggle auto-harvest routine which moves player and harvests wheat tiles sequentially
-                ToggleAutoHarvest();
             }
         }
 
